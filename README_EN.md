@@ -28,7 +28,7 @@ The `examples/` directory ships 10 genuine outputs (specs embedded, reproducible
 | [3_wanglushan_poem.html](examples/3_wanglushan_poem.html) | 《望庐山瀑布》 classical poem | poem / both |
 | [4_huixiang_cuui.html](examples/4_huixiang_cuui.html) | 《回乡偶书》, 衰 corrected to the traditional reading *cuī* | poem / both + override |
 | [5_shanxing_worksheet.html](examples/5_shanxing_worksheet.html) | 《山行》 write-characters-from-pinyin | worksheet / pinyin |
-| [6_duanwen_reading.html](examples/6_duanwen_reading.html) | 《秋天的雨（节选）》 textbook passage | reading / both |
+| [6_duanwen_reading.html](examples/6_duanwen_reading.html) | 《外婆的小菜园》 original short essay | reading / both |
 | [7_huixiang_hanzi.html](examples/7_huixiang_hanzi.html) | 《回乡偶书》 pinyin-free recitation copy | poem / hanzi |
 | [8_chunxiao_blankpy.html](examples/8_chunxiao_blankpy.html) | 《春晓》 tone-marking practice | worksheet / blank_pinyin |
 | [9_jingyesi_wshanzi.html](examples/9_jingyesi_wshanzi.html) | 《静夜思》 tianzige handwriting practice | worksheet / hanzi |
@@ -78,7 +78,7 @@ Automatic annotation is not guaranteed perfect: questionable readings go into `r
 
 ## Version
 
-Current: **v1.1.4** (2026-11-14) · MIT (declared in [SKILL.md](SKILL.md)) · Downloads: [Release v1.1.4](https://github.com/chenzhutao/chinese-pinyin-typesetting/releases/tag/v1.1.4)
+Current: **v1.1.4** (2026-11-14) · Project's own code and content: MIT ([LICENSE](LICENSE)); the vendored pypinyin and its pinyin data are governed by their own licenses (see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)) · Downloads: [Release v1.1.4](https://github.com/chenzhutao/chinese-pinyin-typesetting/releases/tag/v1.1.4)
 
 - v1.1.4: default pinyin size raised to 0.55 of the character size
 - v1.1.3: fixed a crash with the phrase + all override locator; first public release
