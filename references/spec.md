@@ -28,7 +28,7 @@
 | 字段 | 合法值 | 默认 | 说明 |
 |---|---|---|---|
 | `han_size` | 8-120 | poem 32 / reading 15.5 / worksheet 24 | 汉字字号 pt；超页宽/页高时自动缩小 |
-| `pinyin_ratio` | 0.25-0.8 | 0.42 | 拼音字号 = 汉字 × 比例（`pinyin_size` 可直接给 pt 覆盖） |
+| `pinyin_ratio` | 0.25-0.8 | 0.55 | 拼音字号 = 汉字 × 比例（`pinyin_size` 可直接给 pt 覆盖） |
 | `page` | A4/A5/LETTER | A4 | 纸张 |
 | `landscape` | bool | false | 横向 |
 | `margin_mm` | 数值或 [上下,左右] | 18 | 页边距 mm |

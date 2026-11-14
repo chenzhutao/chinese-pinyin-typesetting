@@ -3,7 +3,7 @@ name: chinese-pinyin-typesetting
 description: 中文拼音注音排版。给古诗、儿歌、课文、短文生成适合小学生阅读、朗诵、背诵和 A4 打印的注音 HTML 文档（汉字上方逐字标注带声调拼音，教材风格排版）。用户提到加拼音、注音、拼音排版、拼音文档、默写练习、看拼音写汉字、注音版/背诵版/朗读版古诗等时使用。支持多音字教材读音与用户校正（如"鬓毛衰"读 cuī）、三种模板（古诗背诵版/课文阅读版/默写练习版）、只显汉字/只显拼音等模式、可选本机 Chrome/Edge 导出 PDF。
 license: MIT
 metadata:
-  version: "1.1.3"
+  version: "1.1.4"
   category: education
   runtime: "Python >= 3.10（仅标准库 + 内置 pypinyin 0.55.0，见 scripts/_vendor；无需 pip install，无网络请求）"
   outputs: "自包含单文件 HTML（UTF-8、内嵌 CSS、无外部资源）；可选 PDF，需执行环境装有 Chrome/Chromium/Edge"
@@ -64,7 +64,7 @@ Agent 的职责是：理解用户需求 → 准备 spec → 以标准方式执�
   "annotate_title": true,
   "annotate_author": false,
   "han_size": 32,
-  "pinyin_ratio": 0.42,
+  "pinyin_ratio": 0.55,
   "page": "A4",
   "margin_mm": 18,
   "font": "kai",
