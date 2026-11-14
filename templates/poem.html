@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{title}}</title>
+<style>
+{{common_css}}
+/* ---- 古诗背诵版 ---------------------------------------------------- */
+.v {
+  text-align: center;
+  line-height: 1;
+  margin: 0 auto calc(var(--fs) * var(--vgap));
+}
+.v:last-child { margin-bottom: 0; }
+.stanza {
+  margin: 0 auto calc(var(--fs) * 1.8);
+}
+.stanza:last-child { margin-bottom: 0; }
+main { text-align: center; }
+.py-note {
+  margin-top: calc(var(--fs) * 1.2);
+  text-align: center;
+  font-size: calc(var(--fs) * .5);
+  color: #6a7280;
+  font-family: var(--fp);
+}
+</style>
+</head>
+<body class="{{body_class}}">
+<div class="sheet">
+  {{header}}
+  <main>{{stanzas}}</main>
+  {{footer}}
+</div>
+<script type="application/json" id="cpt-spec">{{spec_json}}</script>
+</body>
+</html>

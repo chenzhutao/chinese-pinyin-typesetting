@@ -1,0 +1,7 @@
+__pycache__/
+*.pyc
+.pytest_cache/
+tests/_tmp/
+*.pdf
+examples/_*.png
+tmp*.json

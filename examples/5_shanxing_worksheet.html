@@ -1,0 +1,264 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>山行</title>
+<style>
+@page { size: A4 portrait; margin: 18.0mm 18.0mm; }
+.sheet {
+  --fs-base: 24.00pt; --fs: 24.00pt;
+  --pyr: 0.4200; --cellr: 1.4504;
+  --units: 10.71; --t-scale: 1.3200;
+  --py: calc(var(--fs) * var(--pyr));
+  --cell: calc(var(--fs) * var(--cellr));
+  --hzlh: calc(var(--fs) * 1.18);
+  --pyh: calc(var(--py) * 1.7);
+  --rowh: calc(var(--pyh) + var(--hzlh));
+  --fst: calc(var(--fs) * var(--t-scale));
+  --t-cell: calc(var(--fst) * var(--cellr));
+  --t-hzlh: calc(var(--fst) * 1.18);
+  --t-py: calc(var(--fst) * var(--pyr));
+  --t-pyh: calc(var(--t-py) * 1.7);
+  --t-rowh: calc(var(--t-pyh) + var(--t-hzlh));
+  --page-w: 210.0mm; --pad: 18.0mm 18.0mm;
+  --vgap: 0.90; --lgap: 0.70;
+  --fh: "KaiTi", "楷体", "STKaiti", "Kaiti SC", "Kaiti TC", "DFKai-SB", "AR PL UKai CN", "Noto Serif CJK SC", "Noto Sans CJK SC", serif;
+}
+:root { --fh: "KaiTi", "楷体", "STKaiti", "Kaiti SC", "Kaiti TC", "DFKai-SB", "AR PL UKai CN", "Noto Serif CJK SC", "Noto Sans CJK SC", serif; }
+/* chinese-pinyin-typesetting 共享排版基础
+   —— 注音单元不依赖浏览器默认 ruby 排版：display:inline-flex 列布局，
+   拼音行高、汉字行高、单元总高全部显式固定，保证同句基线对齐、
+   拼音不重叠、声调符号不裁剪。 */
+
+:root {
+  /* 由 renderer.py 按文档计算注入：
+     --fs 汉字字号(pt)  --py 拼音字号(pt)  --cell 注音单元宽
+     --rowh 单元总高    --fst 标题字号     --units 最长行单元数(移动端缩放) */
+  --fh: "KaiTi", "楷体", "STKaiti", "Kaiti SC", "Kaiti TC", "DFKai-SB",
+        "AR PL UKai CN", "Noto Serif CJK SC", "Noto Sans CJK SC", serif;
+  --fp: "Segoe UI", "PingFang SC", "Microsoft YaHei", "Helvetica Neue",
+        "Arial", sans-serif;
+  --ink: #1a1a1a;
+  --ink-py: #40464e;
+  --line: #b9c0c8;
+  --dash: #cfd6dd;
+}
+
+* { box-sizing: border-box; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+
+html, body { margin: 0; padding: 0; }
+
+body {
+  background: #eceef0;
+  color: var(--ink);
+  font-family: var(--fh);
+  line-height: 1;
+  -webkit-font-smoothing: antialiased;
+}
+
+@media screen {
+  body { display: flex; flex-direction: column; align-items: center; justify-content: center;
+         min-height: 100vh; }
+}
+
+.sheet {
+  container-type: inline-size;   /* 钳制公式以内容宽（100cqw）为准：手机/A5/窄容器一致 */
+  width: min(100%, var(--page-w));  /* 容器查询下尺寸不能依赖内容：显式给宽 */
+  background: #fff;
+  margin: 16px auto;
+  padding: var(--pad);
+  box-shadow: 0 1px 6px rgba(20, 30, 40, .18);
+  max-width: var(--page-w);
+}
+
+/* ---- 注音单元 ------------------------------------------------------ */
+
+.c {
+  display: inline-flex;
+  flex-direction: column-reverse;   /* 汉字在下、拼音在上；DOM 仍是 rb-后-rt */
+  align-items: center;
+  justify-content: flex-start;
+  min-width: var(--cell);
+  height: var(--rowh);
+  vertical-align: bottom;
+}
+
+.c .h {
+  font-family: var(--fh);
+  font-size: var(--fs);
+  line-height: var(--hzlh);
+  font-weight: 400;
+  white-space: nowrap;
+}
+
+.c .y {
+  display: block;
+  font-family: var(--fp);
+  font-size: var(--py);
+  line-height: 1.25;
+  height: var(--pyh);
+  white-space: nowrap;
+  color: var(--ink-py);
+  letter-spacing: .01em;
+}
+
+/* 标点单元：全角字形盒 1em；左墨迹句读（，。、）裁掉空白右半，
+   不占汉字注音空间，也不产生行尾溢出 */
+.c.p { min-width: 0; width: var(--fs); }
+.c.p .h { display: block; width: 100%; text-align: left; }
+.c.p .y { visibility: hidden; }        /* 占位保持行高，不显示空拼音 */
+.c.p.tuck { width: calc(var(--fs) * .56); }
+.c.p.tuck .h { overflow: hidden; }
+
+/* 拉丁词/数字单元：与汉字同高，保证行内基线一致 */
+.c.lat { min-width: 0; padding: 0 calc(var(--fs) * .06); }
+.c.lat .h { font-size: calc(var(--fs) * .86); }
+
+/* 空白单元 */
+.c.sp { min-width: calc(var(--fs) * .5); visibility: hidden; }
+
+/* 只显汉字（朗诵/背诵）模式：无拼音行，紧凑 */
+body.mode-hanzi .c { min-width: calc(var(--fs) * 1.12); height: var(--hzlh); }
+
+/* 看拼音写汉字：汉字换成田字格 */
+.tz {
+  display: inline-block;
+  width: var(--fs);
+  height: var(--fs);
+  margin: calc((var(--hzlh) - var(--fs)) / 2) 0;
+  border: 1.4px solid var(--line);
+  border-radius: 2px;
+  position: relative;
+  background: #fff;
+}
+.tz::before {
+  content: ""; position: absolute; left: 0; right: 0; top: 50%;
+  border-top: 1px dashed var(--dash);
+}
+.tz::after {
+  content: ""; position: absolute; top: 0; bottom: 0; left: 50%;
+  border-left: 1px dashed var(--dash);
+}
+
+/* 给汉字注音练习：拼音位换成书写空线 */
+.y.blank {
+  border-bottom: 1.2px solid var(--line);
+  width: 88%;
+  height: calc(var(--pyh) - 2px);
+}
+
+/* 避头尾：汉字与其后标点不拆行 */
+.nb { white-space: nowrap; }
+
+/* ---- 页眉（标题/作者） --------------------------------------------- */
+
+header.hd { text-align: center; margin: 0 0 calc(var(--fs) * 1.1); }
+
+.t-line {
+  display: block;
+  text-align: center;
+  line-height: 1;
+}
+.t-line .c { height: calc(var(--t-rowh)); min-width: var(--t-cell); }
+.t-line .c .h { font-size: var(--fst); line-height: var(--t-hzlh); }
+.t-line .c .y { font-size: var(--t-py); height: var(--t-pyh); }
+.t-line .c.p { min-width: calc(var(--fst) * .52); }
+
+.a-line {
+  margin-top: calc(var(--fs) * .5);
+  font-family: var(--fh);
+  font-size: calc(var(--fs) * .72);
+  color: #333;
+  letter-spacing: .12em;
+}
+
+/* ---- 移动端：按最长行整体缩放字号（--fs 及全部派生变量级联），
+        避免水平溢出；仅对诗行排版（body.auto-clamp）生效 ---- */
+
+@media (max-width: 760px) {
+  body.auto-clamp .sheet {
+    /* units 已含 cellr（行宽 = units × fs），按可用宽直接解字号上限；
+       多除一次 cellr 会导致七言诗在真实窄屏（≤400px）句中折行 */
+    --fs: min(var(--fs-base), calc((100cqw - 28px) / var(--units)));
+  }
+  .sheet { margin: 0; box-shadow: none; max-width: 100%; padding: 14px 10px; }
+}
+
+/* ---- 打印 ----------------------------------------------------------- */
+
+@media print {
+  body { background: #fff; }
+  .sheet {
+    margin: 0; padding: 0; box-shadow: none; max-width: none;
+    width: auto; container-type: normal;
+  }
+  .stanza, .ws-line, .tian-row { break-inside: avoid; page-break-inside: avoid; }
+  header.hd, .grp-head { break-after: avoid-page; page-break-after: avoid; }
+  .para { orphans: 2; widows: 2; }
+}
+
+/* ---- 默写练习版 ---------------------------------------------------- */
+.ws-meta {
+  display: flex;
+  flex-wrap: wrap;               /* 窄屏时自动换成两行，避免固定空线宽溢出 */
+  justify-content: space-between;
+  gap: 0.4em 1.5em;
+  font-size: calc(var(--fs) * .62);
+  color: #333;
+  margin: 0 0 calc(var(--fs) * .8);
+  font-family: var(--fh);
+}
+.ws-meta .blank { border-bottom: 1.2px solid #666; padding: 0 2.2em; }
+
+.v {
+  text-align: center;
+  line-height: 1;
+  margin: 0 auto calc(var(--fs) * var(--vgap));
+}
+.stanza { margin: 0 auto calc(var(--fs) * 1.3); }
+main { text-align: center; }
+.para {
+  text-align: justify;
+  margin: 0 0 calc(var(--fs) * var(--vgap));
+  line-height: calc(var(--rowh) + var(--fs) * var(--lgap));
+  text-indent: calc(var(--cell) * 2);   /* 两个注音格：与教材拼音读物一致 */;
+}
+
+/* 每句下方的田字格书写行：格子边长 = 汉字字号，间距按注音单元宽对齐诗句 */
+.tian-row {
+  margin: calc(var(--fs) * .45) auto calc(var(--fs) * .55);
+  line-height: 1;
+  white-space: nowrap;
+  overflow: visible;
+}
+.tian-row .tz {
+  width: var(--fs);
+  height: var(--fs);
+  margin: 0 calc((var(--cell) - var(--fs)) / 2);
+}
+.tian-row.tian-wrap {
+  display: flex; flex-wrap: wrap; justify-content: center;
+  white-space: normal; max-width: 100%;
+}
+.ws-line { text-align: center; }
+
+.py-note {
+  margin-top: calc(var(--fs) * 1.2);
+  text-align: center;
+  font-size: calc(var(--fs) * .5);
+  color: #6a7280;
+  font-family: var(--fp);
+}
+</style>
+</head>
+<body class="mode-pinyin tpl-worksheet auto-clamp">
+<div class="sheet">
+  <header class="hd"><div class="t-line"><ruby class="c"><span class="tz" aria-label="山"></span><rt class="y">shān</rt></ruby><ruby class="c"><span class="tz" aria-label="行"></span><rt class="y">xíng</rt></ruby></div><div class="a-line">〔唐〕杜牧</div></header>
+  <div class="ws-meta"><span>姓名<span class="blank"></span></span><span>日期<span class="blank"></span></span><span>得分<span class="blank"></span></span></div>
+  <main><div class="stanza"><div class="v"><ruby class="c"><span class="tz" aria-label="远"></span><rt class="y">yuǎn</rt></ruby><ruby class="c"><span class="tz" aria-label="上"></span><rt class="y">shàng</rt></ruby><ruby class="c"><span class="tz" aria-label="寒"></span><rt class="y">hán</rt></ruby><ruby class="c"><span class="tz" aria-label="山"></span><rt class="y">shān</rt></ruby><ruby class="c"><span class="tz" aria-label="石"></span><rt class="y">shí</rt></ruby><ruby class="c"><span class="tz" aria-label="径"></span><rt class="y">jìng</rt></ruby><ruby class="c"><span class="tz" aria-label="斜"></span><rt class="y">xié</rt></ruby><ruby class="c p tuck"><span class="h">，</span><rt class="y">&nbsp;</rt></ruby><wbr></div><div class="tian-row"><span class="tz"></span><wbr><span class="tz"></span><wbr><span class="tz"></span><wbr><span class="tz"></span><wbr><span class="tz"></span><wbr><span class="tz"></span><wbr><span class="tz"></span></div><div class="v"><ruby class="c"><span class="tz" aria-label="白"></span><rt class="y">bái</rt></ruby><ruby class="c"><span class="tz" aria-label="云"></span><rt class="y">yún</rt></ruby><ruby class="c"><span class="tz" aria-label="生"></span><rt class="y">shēng</rt></ruby><ruby class="c"><span class="tz" aria-label="处"></span><rt class="y">chù</rt></ruby><ruby class="c"><span class="tz" aria-label="有"></span><rt class="y">yǒu</rt></ruby><ruby class="c"><span class="tz" aria-label="人"></span><rt class="y">rén</rt></ruby><ruby class="c"><span class="tz" aria-label="家"></span><rt class="y">jiā</rt></ruby><ruby class="c p tuck"><span class="h">。</span><rt class="y">&nbsp;</rt></ruby><wbr></div><div class="tian-row"><span class="tz"></span><wbr><span class="tz"></span><wbr><span class="tz"></span><wbr><span class="tz"></span><wbr><span class="tz"></span><wbr><span class="tz"></span><wbr><span class="tz"></span></div><div class="v"><ruby class="c"><span class="tz" aria-label="停"></span><rt class="y">tíng</rt></ruby><ruby class="c"><span class="tz" aria-label="车"></span><rt class="y">chē</rt></ruby><ruby class="c"><span class="tz" aria-label="坐"></span><rt class="y">zuò</rt></ruby><ruby class="c"><span class="tz" aria-label="爱"></span><rt class="y">ài</rt></ruby><ruby class="c"><span class="tz" aria-label="枫"></span><rt class="y">fēng</rt></ruby><ruby class="c"><span class="tz" aria-label="林"></span><rt class="y">lín</rt></ruby><ruby class="c"><span class="tz" aria-label="晚"></span><rt class="y">wǎn</rt></ruby><ruby class="c p tuck"><span class="h">，</span><rt class="y">&nbsp;</rt></ruby><wbr></div><div class="tian-row"><span class="tz"></span><wbr><span class="tz"></span><wbr><span class="tz"></span><wbr><span class="tz"></span><wbr><span class="tz"></span><wbr><span class="tz"></span><wbr><span class="tz"></span></div><div class="v"><ruby class="c"><span class="tz" aria-label="霜"></span><rt class="y">shuāng</rt></ruby><ruby class="c"><span class="tz" aria-label="叶"></span><rt class="y">yè</rt></ruby><ruby class="c"><span class="tz" aria-label="红"></span><rt class="y">hóng</rt></ruby><ruby class="c"><span class="tz" aria-label="于"></span><rt class="y">yú</rt></ruby><ruby class="c"><span class="tz" aria-label="二"></span><rt class="y">èr</rt></ruby><ruby class="c"><span class="tz" aria-label="月"></span><rt class="y">yuè</rt></ruby><ruby class="c"><span class="tz" aria-label="花"></span><rt class="y">huā</rt></ruby><ruby class="c p tuck"><span class="h">。</span><rt class="y">&nbsp;</rt></ruby><wbr></div><div class="tian-row"><span class="tz"></span><wbr><span class="tz"></span><wbr><span class="tz"></span><wbr><span class="tz"></span><wbr><span class="tz"></span><wbr><span class="tz"></span><wbr><span class="tz"></span></div></div></main>
+  
+</div>
+<script type="application/json" id="cpt-spec">{"title":"山行","author":"杜牧","dynasty":"唐","template":"worksheet","mode":"pinyin","text":"远上寒山石径斜，\n白云生处有人家。\n停车坐爱枫林晚，\n霜叶红于二月花。","_template":"worksheet"}</script>
+</body>
+</html>

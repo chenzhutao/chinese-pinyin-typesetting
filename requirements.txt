@@ -1,0 +1,4 @@
+# 声明用：Skill 已在 scripts/_vendor/ 内置 pypinyin，任何执行后端无需 pip install。
+# 若宿主环境希望预装（可减少首跑冷加载约 1-2s），可执行：
+#   pip install pypinyin==0.55.0
+pypinyin==0.55.0

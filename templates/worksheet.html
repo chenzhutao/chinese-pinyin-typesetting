@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{title}}</title>
+<style>
+{{common_css}}
+/* ---- 默写练习版 ---------------------------------------------------- */
+.ws-meta {
+  display: flex;
+  flex-wrap: wrap;               /* 窄屏时自动换成两行，避免固定空线宽溢出 */
+  justify-content: space-between;
+  gap: 0.4em 1.5em;
+  font-size: calc(var(--fs) * .62);
+  color: #333;
+  margin: 0 0 calc(var(--fs) * .8);
+  font-family: var(--fh);
+}
+.ws-meta .blank { border-bottom: 1.2px solid #666; padding: 0 2.2em; }
+
+.v {
+  text-align: center;
+  line-height: 1;
+  margin: 0 auto calc(var(--fs) * var(--vgap));
+}
+.stanza { margin: 0 auto calc(var(--fs) * 1.3); }
+main { text-align: center; }
+.para {
+  text-align: justify;
+  margin: 0 0 calc(var(--fs) * var(--vgap));
+  line-height: calc(var(--rowh) + var(--fs) * var(--lgap));
+  text-indent: calc(var(--cell) * 2);   /* 两个注音格：与教材拼音读物一致 */;
+}
+
+/* 每句下方的田字格书写行：格子边长 = 汉字字号，间距按注音单元宽对齐诗句 */
+.tian-row {
+  margin: calc(var(--fs) * .45) auto calc(var(--fs) * .55);
+  line-height: 1;
+  white-space: nowrap;
+  overflow: visible;
+}
+.tian-row .tz {
+  width: var(--fs);
+  height: var(--fs);
+  margin: 0 calc((var(--cell) - var(--fs)) / 2);
+}
+.tian-row.tian-wrap {
+  display: flex; flex-wrap: wrap; justify-content: center;
+  white-space: normal; max-width: 100%;
+}
+.ws-line { text-align: center; }
+
+.py-note {
+  margin-top: calc(var(--fs) * 1.2);
+  text-align: center;
+  font-size: calc(var(--fs) * .5);
+  color: #6a7280;
+  font-family: var(--fp);
+}
+</style>
+</head>
+<body class="{{body_class}}">
+<div class="sheet">
+  {{header}}
+  <div class="ws-meta"><span>姓名<span class="blank"></span></span><span>日期<span class="blank"></span></span><span>得分<span class="blank"></span></span></div>
+  <main>{{body}}</main>
+  {{footer}}
+</div>
+<script type="application/json" id="cpt-spec">{{spec_json}}</script>
+</body>
+</html>
