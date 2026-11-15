@@ -145,6 +145,16 @@ header.hd { text-align: center; margin: 0 0 calc(var(--fs) * 1.1); }
   letter-spacing: .12em;
 }
 
+/* ---- 双栏排版（spec columns=2）：正文双栏，页眉/页脚通栏 ----------------
+   栏间距系数 2.5 与 renderer.py 的 COLUMN_GAP_K 保持同步（栏宽求解用）。 */
+
+body.cols-2 main {
+  column-count: 2;
+  column-gap: calc(var(--fs) * 2.5);
+  column-fill: balance;
+}
+body.cols-2 .stanza { break-inside: avoid; }   /* 节不跨栏：屏幕分栏也生效（打印规则见下） */
+
 /* ---- 移动端：按最长行整体缩放字号（--fs 及全部派生变量级联），
         避免水平溢出；仅对诗行排版（body.auto-clamp）生效 ---- */
 
@@ -153,6 +163,10 @@ header.hd { text-align: center; margin: 0 0 calc(var(--fs) * 1.1); }
     /* units 已含 cellr（行宽 = units × fs），按可用宽直接解字号上限；
        多除一次 cellr 会导致七言诗在真实窄屏（≤400px）句中折行 */
     --fs: min(var(--fs-base), calc((100cqw - 28px) / var(--units)));
+  }
+  /* 双栏在窄屏回退单栏：仅屏幕（打印时按纸张宽评估媒体查询，A5 会误触发） */
+  @media screen and (max-width: 760px) {
+    body.cols-2 main { column-count: 1; }
   }
   .sheet { margin: 0; box-shadow: none; max-width: 100%; padding: 14px 10px; }
 }

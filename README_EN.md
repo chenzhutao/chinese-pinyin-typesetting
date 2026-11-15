@@ -2,7 +2,7 @@
 
 [简体中文](README.md) | English
 
-**AI Agent Skill · v1.1.4 · For agents that support Skill loading and local script execution · Zero third-party dependencies · MIT**
+**AI Agent Skill · v1.2.0 · For agents that support Skill loading and local script execution · Zero third-party dependencies · MIT**
 
 An AI Agent Skill that turns classical poems, nursery rhymes, textbook passages, and short essays into **textbook-quality annotated HTML**—each character carries its tone-marked Hanyu Pinyin directly above it (ā á ǎ à, ü, neutral tone), verse lines are centered on a shared baseline, A4 printing never truncates, and pages reflow on phones without horizontal scrolling. The romanization system is Hanyu Pinyin (汉语拼音), the standard for Simplified Chinese in mainland China—**not** Zhuyin / Bopomofo (ㄅㄆㄇ), the phonetic script used in Taiwan, which is not supported.
 
@@ -14,12 +14,13 @@ It is **cross-agent by design**: the [SKILL.md](SKILL.md) in the directory is th
 - **Built-in textbook readings**: approved readings from China's unified-edition textbooks applied automatically (e.g. 石径斜 *xié*, 一日还 *huán*); 一 / 不 tone sandhi follows textbook convention and can be disabled
 - **Review list + optional corrections**: questionable readings go into a `review` list for the agent to relay to the user; the optional `overrides` mechanism supports four locator styles—index, line + character, phrase, single character
 - **3 templates × 4 modes**: poem / reading / worksheet × annotated / hanzi-only / pinyin-only / tone-marking practice
+- **Optional two-column body**: `columns=2` sets the body in two columns (full-width header & footer, stanzas never split across columns, single-column fallback on narrow screens, stays two-column in print) — available for every template
 - **Iterative regeneration**: `--from-html` recovers all settings and correction history from an existing HTML file; change one parameter, get a new version
 - **Self-contained HTML output**: single file, inline CSS, adapts to phones, Ctrl+P prints to A4, optional `--pdf` export via a local Chrome/Edge
 
 ## Examples
 
-The `examples/` directory ships 10 genuine outputs (specs embedded, reproducible). GitHub shows HTML as source—clone or download the repo and open them in a browser to see the actual typography:
+The `examples/` directory ships 11 genuine outputs (specs embedded, reproducible). GitHub shows HTML as source—clone or download the repo and open them in a browser to see the actual typography:
 
 | Example | Content | Template / mode |
 |---|---|---|
@@ -33,6 +34,7 @@ The `examples/` directory ships 10 genuine outputs (specs embedded, reproducible
 | [8_chunxiao_blankpy.html](examples/8_chunxiao_blankpy.html) | 《春晓》 tone-marking practice | worksheet / blank_pinyin |
 | [9_jingyesi_wshanzi.html](examples/9_jingyesi_wshanzi.html) | 《静夜思》 tianzige handwriting practice | worksheet / hanzi |
 | [10_woiuiqing_reading.html](examples/10_woiuiqing_reading.html) | 《我对爱情的理解》 modern short essay | reading / both |
+| [11_duanwen_twocol.html](examples/11_duanwen_twocol.html) | 《外婆的小菜园》 in two columns | reading / both + columns=2 |
 
 ## Installation
 
@@ -41,7 +43,7 @@ Python ≥3.10 is all you need—the pinyin engine is vendored under `scripts/_v
 ```bash
 git clone https://github.com/chenzhutao/chinese-pinyin-typesetting.git
 # Or download and unzip the Release ZIP:
-# https://github.com/chenzhutao/chinese-pinyin-typesetting/releases/tag/v1.1.4
+# https://github.com/chenzhutao/chinese-pinyin-typesetting/releases/tag/v1.2.0
 ```
 
 - **For an AI Agent**: place the whole directory into the agent's skills directory (path per your agent's docs, e.g. `~/.claude/skills/`)
@@ -78,9 +80,10 @@ Automatic annotation is not guaranteed perfect: questionable readings go into `r
 
 ## Version
 
-Current: **v1.1.4** (2026-11-14) · Project's own code and content: MIT ([LICENSE](LICENSE)); the vendored pypinyin and its pinyin data are governed by their own licenses (see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)) · Downloads: [Release v1.1.4](https://github.com/chenzhutao/chinese-pinyin-typesetting/releases/tag/v1.1.4)
+Current: **v1.2.0** (2026-11-15) · Project's own code and content: MIT ([LICENSE](LICENSE)); the vendored pypinyin and its pinyin data are governed by their own licenses (see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)) · Downloads: [Release v1.2.0](https://github.com/chenzhutao/chinese-pinyin-typesetting/releases/tag/v1.2.0)
 
+- v1.2.0: optional two-column body layout (`columns=2`, available for every template, auto single-column fallback on narrow screens)
 - v1.1.4: default pinyin size raised to 0.55 of the character size
 - v1.1.3: fixed a crash with the phrase + all override locator; first public release
 
-The repository ships 43 unit tests and a 30-check browser audit (`tests/`).
+The repository ships 46 unit tests and a 33-check browser audit (`tests/`).

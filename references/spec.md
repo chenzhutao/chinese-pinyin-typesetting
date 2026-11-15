@@ -31,6 +31,7 @@
 | `pinyin_ratio` | 0.25-0.8 | 0.55 | 拼音字号 = 汉字 × 比例（`pinyin_size` 可直接给 pt 覆盖） |
 | `page` | A4/A5/LETTER | A4 | 纸张 |
 | `landscape` | bool | false | 横向 |
+| `columns` | 1/2 | 1 | 正文栏数；2=双栏（页眉页脚通栏、节不跨栏、窄屏自动回退单栏、打印保持双栏） |
 | `margin_mm` | 数值或 [上下,左右] | 18 | 页边距 mm |
 | `font` | kai/song/hei | kai | 汉字字体（楷体最接近教材） |
 | `line_gap_scale` | ≥0.2 | 1.0 | 行距缩放 |

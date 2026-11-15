@@ -105,6 +105,23 @@ _INJECT = r"""
         Math.max.apply(null, bottoms) - Math.min.apply(null, bottoms) > 2)
       out.brokenClusters.push(i);
   });
+  // ---- 双栏（body.cols-2）：实际栏数 / 行内容是否超栏宽 ------------------
+  if (document.body.classList.contains('cols-2')) {
+    var m = document.querySelector('main');
+    if (m) {
+      var mcs = getComputedStyle(m);
+      var n = parseInt(mcs.columnCount, 10) || 1;
+      var mgap = parseFloat(mcs.columnGap) || 0;
+      var colw = (m.clientWidth - mgap * (n - 1)) / n;
+      var colOverflow = [];
+      m.querySelectorAll('.v, .para, .tian-row').forEach(function (el) {
+        if (el.scrollWidth > colw + 2)
+          colOverflow.push(el.className.split(' ')[0]);
+      });
+      out.columns = {n: n, colw: Math.round(colw),
+                     overflow: colOverflow.length, overflowCls: colOverflow.slice(0, 3)};
+    }
+  }
   var pre = document.createElement('pre');
   pre.id = 'cpt-check';
   pre.textContent = JSON.stringify(out);
@@ -181,6 +198,15 @@ def verdict(d: dict) -> list[str]:
         problems.append(f"{d['centerBad']} 个拼音未与汉字居中对齐")
     if d.get("rtCount", 0) > 0 and d.get("tones", 0) == 0 and not d.get("noToneMode"):
         problems.append("未检测到声调符号")
+    cols = d.get("columns")
+    if cols:
+        vw = int(str(d.get("viewport", "0")).split("x")[0] or 0)
+        if vw >= 760 and cols.get("n") != 2:
+            problems.append(f"双栏未生效（实际 {cols.get('n')} 栏）")
+        if vw < 760 and cols.get("n") != 1:
+            problems.append(f"窄屏未回退单栏（实际 {cols.get('n')} 栏）")
+        if cols.get("overflow"):
+            problems.append(f"双栏 {cols['overflow']} 行内容超栏宽（{', '.join(cols.get('overflowCls', []))}）")
     return problems
 
 

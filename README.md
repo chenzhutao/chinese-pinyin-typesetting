@@ -2,7 +2,7 @@
 
 简体中文 | [English](README_EN.md)
 
-**AI Agent Skill · v1.1.4 · 适配支持 Skill 加载规范与本地脚本执行的 Agent · 零第三方依赖 · MIT**
+**AI Agent Skill · v1.2.0 · 适配支持 Skill 加载规范与本地脚本执行的 Agent · 零第三方依赖 · MIT**
 
 面向 AI Agent 的中文注音排版技能：把古诗、儿歌、课文、短文变成**教材风格的注音 HTML**——每个汉字上方是带声调的汉语拼音（ā á ǎ à、ü、轻声齐全），诗句居中基线对齐，A4 打印不截断，手机阅读不横向滚动。注音体系是 Hanyu Pinyin（汉语拼音，中国大陆简体中文的标准注音方案），**不是**台湾注音符号 Zhuyin / Bopomofo（ㄅㄆㄇ），也不支持注音符号。
 
@@ -14,12 +14,13 @@
 - **教材读音内置**：统编教材审定读音自动应用（如"石径斜 xié""一日还 huán"）；"一 / 不"变调按教材标注，可关闭
 - **多音字提示 + 可选纠音**：可疑读音写入 `review` 清单由 Agent 转述给用户；`overrides` 可选纠正，支持按索引、按句字、按短语、按单字四种定位
 - **3 模板 × 4 模式**：古诗背诵 / 课文阅读 / 默写练习 × 注音 / 只汉字 / 只拼音 / 标调练习
+- **双栏正文可选**：`columns=2` 一键双栏（页眉页脚通栏、诗句节不跨栏、窄屏回退单栏、打印保持双栏），所有模板通用
 - **迭代再生成**：`--from-html` 从既有 HTML 恢复全部配置与纠音记录，改一个参数就出新版
 - **自包含 HTML 输出**：单文件、内嵌 CSS，手机自适应，Ctrl+P 即 A4 打印，`--pdf` 可选调本机 Chrome/Edge 导出 PDF
 
 ## 效果展示
 
-`examples/` 收录 10 个真实产物（配置内嵌、可复现）。GitHub 页面只显示源码，clone 或下载后用浏览器打开即可看到实际排版：
+`examples/` 收录 11 个真实产物（配置内嵌、可复现）。GitHub 页面只显示源码，clone 或下载后用浏览器打开即可看到实际排版：
 
 | 示例 | 内容 | 模板 / 模式 |
 |---|---|---|
@@ -33,6 +34,7 @@
 | [8_chunxiao_blankpy.html](examples/8_chunxiao_blankpy.html) | 《春晓》标调练习 | worksheet / blank_pinyin |
 | [9_jingyesi_wshanzi.html](examples/9_jingyesi_wshanzi.html) | 《静夜思》田字格默写 | worksheet / hanzi |
 | [10_woiuiqing_reading.html](examples/10_woiuiqing_reading.html) | 《我对爱情的理解》现代短文 | reading / both |
+| [11_duanwen_twocol.html](examples/11_duanwen_twocol.html) | 《外婆的小菜园》双栏排版 | reading / both + columns=2 |
 
 ## 安装
 
@@ -41,7 +43,7 @@ Python ≥3.10 即可，拼音引擎已内置在 `scripts/_vendor/`（无需 pip
 ```bash
 git clone https://github.com/chenzhutao/chinese-pinyin-typesetting.git
 # 或下载 Release ZIP 解压：
-# https://github.com/chenzhutao/chinese-pinyin-typesetting/releases/tag/v1.1.4
+# https://github.com/chenzhutao/chinese-pinyin-typesetting/releases/tag/v1.2.0
 ```
 
 - **给 Agent 用**：整个目录放进 Agent 的技能/Skills 目录（路径以所用 Agent 文档为准，如 `~/.claude/skills/`）
@@ -78,9 +80,10 @@ stdout 返回 JSON 摘要（含 `review` 多音字提示），退出码 0/2。�
 
 ## 版本信息
 
-当前 **v1.1.4**（2026-11-14）· 项目自身：MIT（[LICENSE](LICENSE)，仅适用于本项目原创代码与内容）；内置 pypinyin 及拼音数据适用各自许可证（详见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)）· 发布包：[Release v1.1.4](https://github.com/chenzhutao/chinese-pinyin-typesetting/releases/tag/v1.1.4)
+当前 **v1.2.0**（2026-11-15）· 项目自身：MIT（[LICENSE](LICENSE)，仅适用于本项目原创代码与内容）；内置 pypinyin 及拼音数据适用各自许可证（详见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)）· 发布包：[Release v1.2.0](https://github.com/chenzhutao/chinese-pinyin-typesetting/releases/tag/v1.2.0)
 
+- v1.2.0：新增双栏正文排版（`columns=2`，所有模板通用，窄屏自动回退单栏）
 - v1.1.4：拼音默认字号提升至汉字的 55%
 - v1.1.3：修复 phrase + all 定位纠音崩溃；首个公开版本
 
-仓库自带 43 项单元测试与 30 项浏览器体检（`tests/`）。
+仓库自带 46 项单元测试与 33 项浏览器体检（`tests/`）。
