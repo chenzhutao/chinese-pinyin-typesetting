@@ -2,7 +2,7 @@
 
 [简体中文](README.md) | English
 
-**AI Agent Skill · v1.2.0 · For agents that support Skill loading and local script execution · Zero third-party dependencies · MIT**
+**AI Agent Skill · v1.3.0 · For agents that support Skill loading and local script execution · Zero third-party dependencies · MIT**
 
 An AI Agent Skill that turns classical poems, nursery rhymes, textbook passages, and short essays into **textbook-quality annotated HTML**—each character carries its tone-marked Hanyu Pinyin directly above it (ā á ǎ à, ü, neutral tone), verse lines are centered on a shared baseline, A4 printing never truncates, and pages reflow on phones without horizontal scrolling. The romanization system is Hanyu Pinyin (汉语拼音), the standard for Simplified Chinese in mainland China—**not** Zhuyin / Bopomofo (ㄅㄆㄇ), the phonetic script used in Taiwan, which is not supported.
 
@@ -13,6 +13,9 @@ It is **cross-agent by design**: the [SKILL.md](SKILL.md) in the directory is th
 - **Per-character annotation**: pinyin sits directly above each character, disambiguated by word context, with full tone marks
 - **Built-in textbook readings**: approved readings from China's unified-edition textbooks applied automatically (e.g. 石径斜 *xié*, 一日还 *huán*); 一 / 不 tone sandhi follows textbook convention and can be disabled
 - **Review list + optional corrections**: questionable readings go into a `review` list for the agent to relay to the user; the optional `overrides` mechanism supports four locator styles—index, line + character, phrase, single character
+- **Adaptive verse layout**: quatrains stay one clause per line (spacious); regulated verse and long poems merge clauses couplet-per-line automatically (never across source lines, never mid-clause); landscape and two-column widths adapt the same way; `couplet` forces it on/off
+- **Page-count target**: `target_pages` jointly tunes line merging, font size, line gaps, and margins to fit the target (hard font floor—no endless shrinking; honest report when unreachable)
+- **Sound pagination**: the title block is atomic and glued to what follows—a title can never sit alone on a page; long poems break at couplet boundaries; tianzige writing rows never separate from their verse line
 - **3 templates × 4 modes**: poem / reading / worksheet × annotated / hanzi-only / pinyin-only / tone-marking practice
 - **Optional two-column body**: `columns=2` sets the body in two columns (full-width header & footer, stanzas never split across columns, single-column fallback on narrow screens, stays two-column in print) — available for every template
 - **Iterative regeneration**: `--from-html` recovers all settings and correction history from an existing HTML file; change one parameter, get a new version
@@ -68,11 +71,11 @@ stdout is a JSON summary (including the `review` list of polyphonic flags); exit
 
 | Template | Use |
 |---|---|
-| `poem` | Classical verse: one centered clause per line, title/dynasty/author separate, font size adapts to 5- or 7-character lines |
+| `poem` | Classical verse: centered verse layout with separate title/dynasty/author; quatrains get one clause per line, regulated/long poems couplet-per-line automatically, font size adapts to line length |
 | `reading` | Textbook passage: paragraphs preserved, automatic wrapping, mixed Chinese/Latin/digit text |
-| `worksheet` | Dictation practice: name/date/score header + tianzige (田字格) writing grids |
+| `worksheet` | Dictation practice: name/date/score header + tianzige (田字格) writing grids (verse line and its grids stay paired across page breaks) |
 
-Display modes (available for every template): `both` annotated (default) · `hanzi` characters only (recitation) · `pinyin` pinyin only (write characters from pinyin) · `blank_pinyin` tone-marking practice. Layout parameters—font size, paper, font family, margins—are covered in [references/spec.md](references/spec.md).
+Display modes (available for every template): `both` annotated (default) · `hanzi` characters only (recitation) · `pinyin` pinyin only (write characters from pinyin) · `blank_pinyin` tone-marking practice. Layout parameters—font size, paper, orientation, two columns, page-count target (`target_pages`), couplet merging (`couplet`)—are covered in [references/spec.md](references/spec.md).
 
 ## Pronunciation Corrections
 
@@ -80,10 +83,11 @@ Automatic annotation is not guaranteed perfect: questionable readings go into `r
 
 ## Version
 
-Current: **v1.2.0** (2026-11-15) · Project's own code and content: MIT ([LICENSE](LICENSE)); the vendored pypinyin and its pinyin data are governed by their own licenses (see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)) · Downloads: [Release v1.2.0](https://github.com/chenzhutao/chinese-pinyin-typesetting/releases/tag/v1.2.0)
+Current: **v1.3.0** (2026-11-15) · Project's own code and content: MIT ([LICENSE](LICENSE)); the vendored pypinyin and its pinyin data are governed by their own licenses (see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)) · Downloads: [Release v1.2.0](https://github.com/chenzhutao/chinese-pinyin-typesetting/releases/tag/v1.2.0) (v1.3.0 package pending)
 
+- v1.3.0: adaptive verse layout (spacious one-clause-per-line for quatrains, automatic couplet-per-line for regulated/long poems and landscape, forceable via `couplet`); page-count target `target_pages` (jointly tunes font/line-gap/margins with a hard font floor); pagination rework (title never alone on a page, long poems break at couplet boundaries, writing grids paired with verse lines)
 - v1.2.0: optional two-column body layout (`columns=2`, available for every template, auto single-column fallback on narrow screens)
 - v1.1.4: default pinyin size raised to 0.55 of the character size
 - v1.1.3: fixed a crash with the phrase + all override locator; first public release
 
-The repository ships 46 unit tests and a 33-check browser audit (`tests/`).
+The repository ships 58 unit tests, a 33-check browser audit, and a PDF page-level audit script (`tests/`).

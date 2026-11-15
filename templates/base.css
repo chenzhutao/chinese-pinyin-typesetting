@@ -153,7 +153,7 @@ body.cols-2 main {
   column-gap: calc(var(--fs) * 2.5);
   column-fill: balance;
 }
-body.cols-2 .stanza { break-inside: avoid; }   /* 节不跨栏：屏幕分栏也生效（打印规则见下） */
+body.cols-2 .stanza:not(.flow) { break-inside: avoid; }  /* 节不跨栏（超高 .flow 节除外） */
 
 /* ---- 移动端：按最长行整体缩放字号（--fs 及全部派生变量级联），
         避免水平溢出；仅对诗行排版（body.auto-clamp）生效 ---- */
@@ -179,7 +179,15 @@ body.cols-2 .stanza { break-inside: avoid; }   /* 节不跨栏：屏幕分栏也
     margin: 0; padding: 0; box-shadow: none; max-width: none;
     width: auto; container-type: normal;
   }
-  .stanza, .ws-line, .tian-row { break-inside: avoid; page-break-inside: avoid; }
-  header.hd, .grp-head { break-after: avoid-page; page-break-after: avoid; }
+  /* 原子单位：一个展示行（通常一联）不拆；书写格不与诗句分离 */
+  .v, .vgrp, .ws-line, .tian-row { break-inside: avoid; page-break-inside: avoid; }
+  /* 节默认 keep（不跨页）；超高节由渲染器标 .flow → 行边界自然分页 */
+  .stanza { break-inside: avoid; page-break-inside: avoid; }
+  .stanza.flow { break-inside: auto; page-break-inside: auto; }
+  /* 标题块/姓名栏自身原子，且黏住后文：标题绝不孤立成页 */
+  header.hd, .ws-meta, .grp-head {
+    break-inside: avoid; page-break-inside: avoid;
+    break-after: avoid-page; page-break-after: avoid;
+  }
   .para { orphans: 2; widows: 2; }
 }

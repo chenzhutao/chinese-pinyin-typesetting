@@ -246,6 +246,15 @@ def build(args) -> dict:
                         "".join(m["char"] for m in ann.missing[:20]))
     if info.get("clause_wrap"):
         warnings.append("个别诗句过长，已在句读处折行")
+    layout = info.get("layout") or {}
+    if layout.get("strategy") == "couplet":
+        warnings.append("已按一联一行合并排版（couplet），可用 --set couplet=false 改回一句一行")
+    if layout.get("target_pages") and layout.get("target_met") is False:
+        warnings.append(f"无法达到 {layout['target_pages']} 页目标（当前约 "
+                        f"{layout['pages_est']} 页）：字号已到 readability 下限，"
+                        f"可改小 han_size 下限来源或接受多页")
+    if layout.get("strategy") == "flow" and layout.get("target_pages"):
+        warnings.append("target_pages 当前仅作用于诗行排版（poem/诗行 worksheet），阅读流未启用")
 
     result = {
         "ok": True,
@@ -256,6 +265,7 @@ def build(args) -> dict:
         "hanzi_count": ann.hanzi_count,
         "han_size_pt": info["han_size"],
         "pinyin_size_pt": info["pinyin_size"],
+        "layout": layout,
         "overrides_applied": ann.applied_overrides,
         "review": ann.review,
         "notes": ann.notes,
