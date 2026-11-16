@@ -91,4 +91,4 @@ Current: **v1.3.1** (2026-11-16) · Project's own code and content: MIT ([LICENS
 - v1.1.4: default pinyin size raised to 0.55 of the character size
 - v1.1.3: fixed a crash with the phrase + all override locator; first public release
 
-The repository ships 63 unit tests, a 33-check browser audit, and a PDF page-level audit script (`tests/`).
+The repository ships 63 unit tests, a 33-check browser audit, and a PDF page-level audit script (`tests/`). The maintenance guide (invariants, coupling matrix, regression protocol) lives in [references/maintenance.md](references/maintenance.md) (Chinese).

@@ -91,4 +91,4 @@ stdout 返回 JSON 摘要（含 `review` 多音字提示），退出码 0/2。�
 - v1.1.4：拼音默认字号提升至汉字的 55%
 - v1.1.3：修复 phrase + all 定位纠音崩溃；首个公开版本
 
-仓库自带 63 项单元测试、33 项浏览器体检与 PDF 实测体检脚本（`tests/`）。
+仓库自带 63 项单元测试、33 项浏览器体检与 PDF 实测体检脚本（`tests/`）；开发维护规范（不变量、连带影响矩阵与回归协议）见 [references/maintenance.md](references/maintenance.md)。
