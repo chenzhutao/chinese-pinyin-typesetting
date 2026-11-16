@@ -135,7 +135,7 @@ def test_fit_shrinks_for_long_verse():
     doc = out.read_text(encoding="utf-8")
     fs = float(re.search(r"--fs-base: ([\d.]+)pt", doc).group(1))
     assert fs < 32
-    long_long = "曲" * 40
+    long_long = "曲" * 50           # 宽度解低于绝对下限 → floor + 字间折行兜底
     out2 = make({"title": "超长", "text": long_long}, "g2.html")
     doc2 = out2.read_text(encoding="utf-8")
     assert "wrap-ok" in doc2                            # 超长句放行折行
@@ -329,11 +329,24 @@ def test_couplet_never_merges_across_source_lines():
     assert _han_of(vs[1]) == "欲穷千里目，更上一层楼。"
 
 
-def test_couplet_leaves_overlong_clause_alone():
-    """超宽度预算的长短句（如"君不见黄河之水天上来"）不强行合并。"""
+def test_couplet_true_merges_long_source_line_within_floor():
+    """couplet=true：联行优先于大字号——超长源行（如"君不见…"19 字）整体
+    一行，字号可缩但不低于默认下限（floor=han_size×0.55）。"""
     text = "君不见黄河之水天上来，奔流到海不复回。"
-    _, doc = make_info({"title": "将进酒(节)", "text": text, "couplet": True}, "cp3.html")
-    assert doc.count('<div class="v">') == 2            # 两小句各自成行
+    info, doc = make_info({"title": "将进酒(节)", "text": text, "couplet": True}, "cp3.html")
+    assert info["layout"]["strategy"] == "couplet"
+    assert doc.count('<div class="v">') == 1            # 整源行一行
+    assert info["han_size"] >= 32 * 0.55                # 字号不破下限
+
+
+def test_auto_leaves_overlong_clause_alone():
+    """auto：贪心按宽度组织——超预算的长短句自然独占一行，不为合并缩字。"""
+    text = "君不见黄河之水天上来，奔流到海不复回。"
+    info, doc = make_info({"title": "将进酒(节)", "text": text}, "cp3b.html")
+    vs = re.findall(r'<div class="v">(.*?)</div>', doc, re.S)
+    assert len(vs) == 2                                  # 两小句各自成行
+    assert _han_of(vs[0]) == "君不见黄河之水天上来，"
+    assert info["han_size"] > 32 * 0.55 * 1.5            # 未过度缩字
 
 
 def test_auto_spacious_for_short_poem_compact_for_long():
@@ -421,3 +434,76 @@ def test_layout_info_in_cli_summary():
     assert spec["target_pages"] == 1                   # 持久进嵌入 spec
     r2 = run_cli("--from-html", "cli12.html", "--set", "couplet=true", "--out", "cli13.html")
     assert r2["ok"] and r2["layout"]["strategy"] == "couplet"
+
+
+# ---------------------------------------------------------------------------
+# 语义折行与几何行组织（v1.3.1）
+# ---------------------------------------------------------------------------
+
+GUSHI_HEAD = ("《望洞庭》\n〔唐〕刘禹锡\n湖光秋月两相和，潭面无风镜未磨。\n"
+              "遥望洞庭山水翠，白银盘里一青螺。\n\n"
+              "《忆江南》\n〔唐〕白居易\n江南好，风景旧曾谙。\n"
+              "日出江花红胜火，春来江水绿如蓝。\n能不忆江南？")
+
+
+def test_wrap_breaks_only_at_clause_boundary():
+    """窄栏触发折行时：断点只在句读后——「未磨。」「如蓝。」绝不与所属小句分离。"""
+    long_text = GUSHI_HEAD + "\n\n" + "\n\n".join(
+        f"《其{i}》\n湖光秋月两相和，潭面无风镜未磨。" for i in range(2, 12))
+    _, doc = make_info({"title": "古诗", "text": long_text,
+                        "columns": 2, "han_size": 40}, "wb1.html")
+    # 字间无断点：任何汉字单元后都不允许 wbr（句读后才是合法断点）
+    assert not re.search(r'<span class="h">[\u4e00-\u9fff]</span></ruby><wbr>', doc)
+    # 小句完整：「潭面无风镜未磨。」「春来江水绿如蓝。」各自独占完整展示行
+    vs = re.findall(r'<div class="v">((?:(?!</div>).)*)</div>', doc, re.S)
+    han_lines = [_han_of(v) for v in vs]
+    assert "潭面无风镜未磨。" in han_lines
+    assert "春来江水绿如蓝。" in han_lines
+
+
+def test_narrow_column_splits_couplets_into_whole_clauses():
+    """双栏窄栏：放不下的七言联自动拆为两个完整小句行（非字间折行）。"""
+    _, doc = make_info({"title": "古诗", "text": GUSHI_HEAD,
+                        "columns": 2, "han_size": 40}, "wb2.html")
+    vs = re.findall(r'<div class="v">(.*?)</div>', doc, re.S)
+    han_lines = [_han_of(v) for v in vs]
+    assert "湖光秋月两相和，" in han_lines and "潭面无风镜未磨。" in han_lines
+    assert "春来江水绿如蓝。" in han_lines and "日出江花红胜火，" in han_lines
+
+
+def test_char_break_fallback_only_without_punct():
+    """无句读超长小句（宽度解低于绝对下限）仍需字间兜底折行。"""
+    out = make({"title": "超长", "text": "曲" * 50}, "wb3.html")
+    doc = out.read_text(encoding="utf-8")
+    assert "wrap-ok" in doc
+    assert "</ruby><wbr><ruby" in doc                      # 字间兜底断点生效
+
+
+def test_display_lines_geometry_and_balance():
+    """行组织单测：贪心按预算装行 + 尾行均衡。"""
+    def frags_of(text):
+        ann = pr.annotate(text)
+        return rd._split_verse(ann.lines[0])
+
+    # 预算充足：五言两小句合并一行
+    lf = frags_of("床前明月光，疑是地上霜。")
+    rows = rd._display_lines(lf, 1.86, 20.0)
+    assert len(rows) == 1 and _han_of_cells(rows[0]) == "床前明月光，疑是地上霜。"
+    # 预算不足：拆为两个完整小句行（绝不字间拆）
+    rows = rd._display_lines(lf, 1.86, 10.0)
+    assert len(rows) == 2
+    assert _han_of_cells(rows[0]) == "床前明月光，" and _han_of_cells(rows[1]) == "疑是地上霜。"
+    # 三字句可 3-4 句同行（预算内贪心，非固定字数）
+    lf3 = frags_of("岑夫子，丹丘生，将进酒，杯莫停。")
+    rows3 = rd._display_lines(lf3, 1.57, 21.5)
+    assert len(rows3) == 1 and _han_of_cells(rows3[0]) == "岑夫子，丹丘生，将进酒，杯莫停。"
+    # 尾行均衡：[7,3] 预算中间值 → 拆行后尾行 3 字 <40% 预算，回退 7 字句应无效
+    #（前行仅 1 小句无法回退）；[3,3,7] 预算只容两小句时尾行为完整小句
+    lf2 = frags_of("五花马，千金裘，呼儿将出换美酒。")
+    rows2 = rd._display_lines(lf2, 1.57, 11.0)
+    assert all(_han_of_cells(r) for r in rows2)
+    assert "".join(_han_of_cells(r) for r in rows2) == "五花马，千金裘，呼儿将出换美酒。"
+
+
+def _han_of_cells(tokens) -> str:
+    return "".join(t.text for t in tokens)

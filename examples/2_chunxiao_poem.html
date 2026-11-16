@@ -207,8 +207,9 @@ body.cols-2 .stanza:not(.flow) { break-inside: avoid; }  /* 节不跨栏（超�
     margin: 0; padding: 0; box-shadow: none; max-width: none;
     width: auto; container-type: normal;
   }
-  /* 原子单位：一个展示行（通常一联）不拆；书写格不与诗句分离 */
-  .v, .vgrp, .ws-line, .tian-row { break-inside: avoid; page-break-inside: avoid; }
+  /* 原子单位：一个展示行（通常一联）不拆；书写格不与诗句分离；
+     flow 节末两行成组防末页孤行 */
+  .v, .vgrp, .ws-line, .tian-row, .widow-keep { break-inside: avoid; page-break-inside: avoid; }
   /* 节默认 keep（不跨页）；超高节由渲染器标 .flow → 行边界自然分页 */
   .stanza { break-inside: avoid; page-break-inside: avoid; }
   .stanza.flow { break-inside: auto; page-break-inside: auto; }

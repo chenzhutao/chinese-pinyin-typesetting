@@ -167,30 +167,62 @@ def _space_cell(t: Token) -> str:
     return f'<ruby class="c sp"><span class="h">&#8201;</span></ruby>'
 
 
-def line_cells(tokens, mode: str, *, poem: bool, allow_break: bool) -> str:
+def line_cells(tokens, mode: str, *, poem: bool, allow_break: bool,
+               clause_only_break: bool = False) -> str:
     """一行/一段的注音 HTML。
 
-    poem=True：诗句排版，句内不断行；allow_break=True 时仅在句读后允许折行。
-    poem=False：流式正文按"簇"输出（_flow_clusters）——闭合类标点并入前一个
+    poem=True：诗句排版。断点规则：
+      - allow_break=False：句内不断行；
+      - allow_break=True 且 clause_only_break=True：仅在句读标点后允许折行
+        （小句完整，"未磨。"绝不与"潭面无风镜"分离）；
+      - allow_break=True 且 clause_only_break=False（旧兜底）：字间也可折行，
+        只用于整行没有任何句读断点的极端超宽小句。
+    poem=False：流式正文按"簇"输出（_flow_clusters）——闭合标点并入前一个
     内容单元、开启类标点并入后一个内容单元，簇间 <wbr>、簇内零断点，
     从结构上保证避头尾（标点不落行首、左标点不落行尾）。
     """
     if poem:
         parts: list[str] = []
+        # 内部断点 = 非行尾的句读标点（行尾句读后的 wbr 无折行意义）
+        has_internal_break = any(
+            tok.kind == "punct" and i < len(tokens) - 1 for i, tok in enumerate(tokens))
         for tok in tokens:
             if tok.kind == "han":
                 parts.append(_han_cell(tok, mode))
-                if allow_break:
+                if allow_break and not clause_only_break:
                     parts.append("<wbr>")
             elif tok.kind == "punct":
                 parts.append(_punct_cell(tok, mode))
-                parts.append("<wbr>")     # 断行只可能出现在句读之后
+                parts.append("<wbr>")     # 小句边界断点（历史行为：无条件保险断点）
             elif tok.kind == "latin":
                 parts.append(_latin_cell(tok, mode))
             else:
                 parts.append(_space_cell(tok))
+        if allow_break and clause_only_break and not has_internal_break:
+            # 整行无内部句读断点（无标点长句、离群标题行）：降级兜底折行
+            return _poem_fallback_break(tokens, mode)
         return "".join(parts)
     return _flow_clusters(tokens, mode)
+
+
+def _poem_fallback_break(tokens, mode: str) -> str:
+    """无句读断点行的兜底折行：开启标点（《（「等）前可断（其后内容
+    整体下移，如"…送别 / （节选）》"），汉字后断点作为最后手段。"""
+    parts: list[str] = []
+    for i, tok in enumerate(tokens):
+        if tok.kind == "punct" and tok.text in _OPENING_PUNCT and i > 0:
+            parts.append("<wbr>")
+        if tok.kind == "han":
+            parts.append(_han_cell(tok, mode))
+            parts.append("<wbr>")
+        elif tok.kind == "punct":
+            parts.append(_punct_cell(tok, mode))
+            parts.append("<wbr>")
+        elif tok.kind == "latin":
+            parts.append(_latin_cell(tok, mode))
+        else:
+            parts.append(_space_cell(tok))
+    return "".join(parts)
 
 
 def _flow_clusters(tokens, mode: str) -> str:
@@ -262,17 +294,16 @@ def _line_units(toks: list[Token], cell_r: float) -> float:
 
 
 # ---------------------------------------------------------------------------
-# 版面计算：小句 → 展示行 → 策略求解与选择
+# 版面计算：小句 → 展示行 → 几何驱动求解
 #
 # 层级：源行（原文一行）—小句（句读处拆分）—展示行（实际排成一行的内容）。
-# 两种展示策略：
-#   pair=False（S1 舒展）：一小句一行，绝句/律诗竖版教材风；
-#   pair=True （S2 紧凑）：同一源行内的小句按宽度预算贪心合并（通常一联一行，
-#                          三字句等短句可 3-4 句一行），绝不跨源行、绝不拆小句。
-# 所有高度都是 fs 的线性函数，可直接解字号上限。
+# 展示行组织由**当前栏宽与字号**决定（无固定字数规则）：
+#   merge=False（clause 舒展）：一小句一行；
+#   merge=True （merge 紧凑）：源行内小句贪心装行，行宽 ≤ 栏宽预算，
+#     宽栏自然联行、窄栏自动拆回小句行，绝不跨源行、绝不拆小句。
+# 行数随字号非线性（字号大 → 预算窄 → 行数多），字号用二分法求解：
+# fits(fs) 单调（超宽或超高都随 fs 增大恶化），收敛即最大可行字号。
 # ---------------------------------------------------------------------------
-
-PAIR_BUDGET_HAN = 8.0   # 合并宽度预算：两个 8 字小句（含句读）以内允许同行
 
 FIT_FLOOR_K = 0.55      # 默认模式字号下限 = max(han_size×该系数, ABS_MIN_FS)
 ABS_MIN_FS = 10.0       # 页数目标模式的绝对字号下限（拼音约 5.5pt，不再更低）
@@ -282,6 +313,7 @@ MARGIN_SCALES = (1.0, 0.85, 0.72)   # 页数目标下的边距自动收窄档位
 MARGIN_MIN_MM = 12.0
 GAP_SCALES = (1.0, 0.85, 0.7)       # 页数目标下的行距自动收紧档位
 GAP_MIN = 0.3
+BREAK_WASTE_K = 0.6     # 每个分页断点的损耗估计（× 一行高度）
 
 
 def _stanza_fragments(ann: Annotation) -> list[list[list[Token]]]:
@@ -289,33 +321,54 @@ def _stanza_fragments(ann: Annotation) -> list[list[list[Token]]]:
     return [[_split_verse(toks) for toks in stanza] for stanza in _stanzas(ann)]
 
 
-def _pair_budget(cell_r: float) -> float:
-    """合并宽度预算（units）：约两个七言小句，随拼音长度自适应。"""
-    return 2.0 * (PAIR_BUDGET_HAN * cell_r + 0.56)
-
-
 def _display_lines(line_frags: list[list[Token]], cell_r: float,
-                   pair: bool) -> list[list[Token]]:
+                   budget_units: float | None) -> list[list[Token]]:
     """源行的小句序列 → 展示行（token 列表）。
 
-    pair=False：一小句一行；pair=True：源行内贪心合并到宽度预算，
-    放不下即换行；单小句超预算独占一行。小句永不拆开、源行间永不合并。
+    budget_units=None：一小句一行。否则源行内贪心装行（行宽 ≤ 预算），
+    放不下即换行；小句永不拆开、源行间永不合并。尾部过短时回退一行
+    小句使两行宽度更均衡（避免短尾行）。
     """
-    if not pair:
+    if budget_units is None:
         return [list(f) for f in line_frags]
-    budget = _pair_budget(cell_r)
-    rows: list[list[Token]] = []
-    cur: list[Token] = []
+    rows: list[list[list[Token]]] = []       # 每行的 [小句 frags]
+    cur: list[list[Token]] = []
     cur_u = 0.0
     for frag in line_frags:
         u = _line_units(frag, cell_r)
-        if cur and cur_u + u > budget:
+        if cur and cur_u + u > budget_units:
             rows.append(cur)
             cur, cur_u = [], 0.0
-        cur.extend(frag)
+        cur.append(frag)
         cur_u += u
     if cur:
         rows.append(cur)
+    rows = _balance_tail(rows, cell_r, budget_units)
+    return [[tok for frag in row for tok in frag] for row in rows]
+
+
+def _balance_tail(rows: list[list[list[Token]]], cell_r: float,
+                  budget: float) -> list[list[list[Token]]]:
+    """尾行过短（< 40% 预算）且前行有 ≥2 小句时，把前行末小句下移，
+    两行均在预算内且宽度更均衡则接受。只回退一步，确定性。"""
+    if len(rows) < 2:
+        return rows
+
+    def u(frags: list[list[Token]]) -> float:
+        return sum(_line_units(f, cell_r) for f in frags)
+
+    tail_u, prev = u(rows[-1]), rows[-2]
+    if tail_u >= 0.4 * budget or len(prev) < 2:
+        return rows
+    moved = prev[-1]
+    new_tail_u = tail_u + _line_units(moved, cell_r)
+    if new_tail_u > budget:
+        return rows
+    old_ratio = tail_u / max(u(prev), 1e-6)
+    new_prev_u = u(prev[:-1])
+    new_ratio = min(new_prev_u, new_tail_u) / max(new_prev_u, new_tail_u, 1e-6)
+    if new_ratio > old_ratio:
+        rows = rows[:-2] + [prev[:-1], [moved] + rows[-1]]
     return rows
 
 
@@ -343,23 +396,60 @@ def _page_geometry(cfg: dict, margin_scale: float = 1.0) -> tuple[float, float]:
     return (pw - 2 * mh) / 25.4 * 72.0, (ph - 2 * mv) / 25.4 * 72.0
 
 
-def _layout_metrics(cfg: dict, ann: Annotation, cell_r: float, pair: bool,
-                    content_w: float, content_h: float) -> dict:
-    """一个策略 + 一组页面几何下的求解。
+def _column_budget(cfg: dict, fs: float, content_w: float) -> float:
+    """单栏行宽预算（units）：从内容宽扣除栏间距后按栏数均分。"""
+    cols = cfg["columns"]
+    return (content_w / fs - COLUMN_GAP_K * (cols - 1)) / cols
 
-    返回 {rows_per_stanza, dl_stanzas, max_units, header_k, body_k,
-          fs_w, fs_v, fs, total_h}；高度类均为 fs 的倍数（_k 后缀）。
+
+CLUSTER_OUTLIER_K = 1.35  # 离群行豁免系数：小句宽 > 1.35×P75 不再钳制全局字号
+
+
+def _clause_units_all(frag_stanzas, cell_r: float) -> list[float]:
+    return [u for st in frag_stanzas for lf in st for u in
+            (_line_units(f, cell_r) for f in lf)]
+
+
+def _outlier_threshold(frag_stanzas, cell_r: float) -> float:
+    """离群阈值 = 1.4 × 全部小句宽度的 P75（统计判据，无内容特例）。
+
+    超过阈值的长行（如合集里的长标题行）不作为全局字号硬约束，
+    由该行自身在行内折行（句读后 → 开启标点前 → 字间，逐级降级）。
+    """
+    us = sorted(_clause_units_all(frag_stanzas, cell_r))
+    if not us:
+        return math.inf
+    p75 = us[max(0, int(round(len(us) * 0.75)) - 1)]
+    return p75 * CLUSTER_OUTLIER_K
+
+
+def _layout_metrics_at(cfg: dict, frag_stanzas, cell_r: float, merge: bool,
+                       fs: float, content_w: float, content_h: float) -> dict:
+    """在给定字号 fs 下组织展示行并求版面高度。
+
+    返回 {dl_stanzas, rows_per_stanza, max_units, header_k, body_k, row_k,
+          total_h, over_budget, content_h}；over_budget>0 表示存在放不进
+    栏宽的单小句（需要字间折行兜底）。
     """
     cols = cfg["columns"]
-    dl_stanzas = [
-        [row for lf in st for row in _display_lines(lf, cell_r, pair)]
-        for st in _stanza_fragments(ann)
-    ]
-    rows_per_stanza = [len(dl) for dl in dl_stanzas] or [1]
-    max_units = max(
-        (u for dl in dl_stanzas for u in [_line_units(r, cell_r) for r in dl]),
-        default=cell_r)
-    fs_w = content_w / max(cols * max_units + COLUMN_GAP_K * (cols - 1), 0.5)
+    budget = _column_budget(cfg, fs, content_w) if merge else None
+    col_budget = _column_budget(cfg, fs, content_w)
+    outlier = _outlier_threshold(frag_stanzas, cell_r)
+    dl_stanzas: list[list[list[Token]]] = []
+    over_budget = 0.0
+    max_units = cell_r
+    for st in frag_stanzas:
+        rows: list[list[Token]] = []
+        for lf in st:
+            for f in lf:                      # 超宽检测按单小句（不可拆单元）
+                u = _line_units(f, cell_r)
+                if u <= outlier:              # 离群长行不钳制全局，自身行内折行
+                    over_budget = max(over_budget, u - col_budget)
+                max_units = max(max_units, min(u, outlier))
+            rows.extend(_display_lines(lf, cell_r, budget))
+        for r in rows:
+            max_units = max(max_units, min(_line_units(r, cell_r), outlier))
+        dl_stanzas.append(rows)
 
     row_k = cfg["pinyin_ratio"] * 1.7 + 1.18          # rowh / fs
     header_k = 0.0
@@ -370,24 +460,73 @@ def _layout_metrics(cfg: dict, ann: Annotation, cell_r: float, pair: bool,
     if cfg["template"] == "worksheet":
         header_k += 0.62 + 0.8                        # 姓名/日期栏
     tian_k = 2.0 * cfg["copy_rows"] if cfg["copy_rows"] else 0.0
+    rows_per_stanza = [len(dl) for dl in dl_stanzas] or [1]
     # 纵向：按节贪心分栏（节不跨栏），取最高一栏的高度
     body_k = max(
         rows * (row_k + cfg["vgap"]) - cfg["vgap"] + max(st - 1, 0) * 1.6 + rows * tian_k
         for rows, st in _pack_columns(rows_per_stanza, cols)
     )
-    target = cfg.get("target_pages", 0)
-    if target >= 1:
-        # 每个额外分页断点最多浪费一行高度（保守计入）
-        slack_k = (target - 1) * (row_k + cfg["vgap"])
-        fs_v = target * content_h / max(header_k + body_k + slack_k, 1.0)
-    else:
-        fs_v = content_h / max(header_k + body_k, 1.0)
-    fs = min(cfg["han_size"], fs_w, fs_v)
-    total_h = (header_k + body_k) * fs                # 无分页损耗的估算总高
-    return {"rows_per_stanza": rows_per_stanza, "dl_stanzas": dl_stanzas,
+    return {"dl_stanzas": dl_stanzas, "rows_per_stanza": rows_per_stanza,
             "max_units": max_units, "header_k": header_k, "body_k": body_k,
-            "fs_w": fs_w, "fs_v": fs_v, "fs": fs, "total_h": total_h,
-            "content_h": content_h}
+            "row_k": row_k, "total_h": (header_k + body_k) * fs,
+            "over_budget": over_budget,
+            "content_h": content_h, "fs": fs}
+
+
+def _pages_needed(m: dict) -> int:
+    """按总高估算页数，每个分页断点计入 BREAK_WASTE_K 行高的损耗。"""
+    total, ch = m["total_h"], m["content_h"]
+    pitch = (m["row_k"] + BREAK_WASTE_K) * m["fs"]
+    pages = max(1, math.ceil(total / ch - 1e-6))
+    while math.ceil((total + (pages - 1) * pitch) / ch - 1e-9) > pages:
+        pages += 1
+    return pages
+
+
+def _solve_fs(cfg: dict, frag_stanzas, cell_r: float, merge: bool,
+              content_w: float, content_h: float,
+              whole_line: bool = False, fs_lo: float = 4.0) -> tuple[float, dict]:
+    """二分求「无超宽 + 总高装得下目标页数」的最大字号。
+
+    目标页数默认 1 页（默认模式），target_pages 模式为目标值；每个额外
+    断点计入 BREAK_WASTE_K 行高损耗（保守）。whole_line=True 时额外要求
+    每个源行整体装进一个展示行（couplet=true 的"联行优先于大字号"），
+    源行放不下的字号视为不可行。返回 (fs, metrics)，
+    metrics["feasible"] 表示该 fs 是否真正可行。
+    """
+    target = cfg.get("target_pages") or 1
+    n_src_lines = sum(len(st) for st in frag_stanzas)
+
+    def metrics_at(fs: float) -> dict:
+        return _layout_metrics_at(cfg, frag_stanzas, cell_r, merge, fs,
+                                  content_w, content_h)
+
+    def fits(m: dict) -> bool:
+        if m["over_budget"] > 0.01:
+            return False
+        if whole_line and sum(m["rows_per_stanza"]) > n_src_lines:
+            return False                 # 每源行须整体一行（couplet=true 语义）
+        return _pages_needed(m) <= target
+
+    hi_fs = cfg["han_size"]
+    m_hi = metrics_at(hi_fs)
+    if fits(m_hi):
+        m_hi["feasible"] = True
+        return hi_fs, m_hi
+    lo, hi, best = fs_lo, hi_fs, None
+    for _ in range(26):
+        mid = (lo + hi) / 2
+        m = metrics_at(mid)
+        if fits(m):
+            lo, best = mid, m
+        else:
+            hi = mid
+    if best is not None:
+        best["feasible"] = True
+        return lo, best
+    m_lo = metrics_at(lo)
+    m_lo["feasible"] = fits(m_lo)
+    return lo, m_lo
 
 
 def _cell_ratio(cfg: dict, ann: Annotation) -> float:
@@ -396,89 +535,148 @@ def _cell_ratio(cfg: dict, ann: Annotation) -> float:
     return max(1.22, _max_pinyin_len(ann) * cfg["pinyin_ratio"] * 0.52 + 0.14)
 
 
-def _choose_verse_layout(cfg: dict, ann: Annotation) -> dict:
-    """诗行排版决策：策略（一小句一行 / 源行内合并）+ 字号 + 页数目标求解。
+def _solve_fs_width(cfg: dict, frag_stanzas, cell_r: float, merge: bool,
+                    content_w: float) -> tuple[float, dict]:
+    """二分求「仅宽度可行」（所有小句装得进栏宽、页数不限）的最大字号。
 
-    couplet=false/true 直接锁定策略；auto 时：
-      - 有 target_pages：在（策略×边距档×行距档）组合里选「达到页数目标且
-        字号 ≥ 舒适下限」的最大字号方案；全部达不到 → 放宽到绝对下限 10pt
-        并取页数最少者（如实 warning，不无限缩字）。
-      - 无 target_pages：单页放得下且不触底的策略优先（S1 舒展优先）；
-        都触底 → 取纵向字号上限更大（欠缩更少）者，长诗自然分页。
+    下界 ABS_MIN_FS：低于绝对下限的宽度需求不再缩字，交由字间折行兜底。
+    返回 (fs, metrics)；metrics["feasible"]=False 表示 ABS_MIN 下仍放不下。
+    """
+    content_h = _page_geometry(cfg)[1]
+
+    def metrics_at(fs: float) -> dict:
+        return _layout_metrics_at(cfg, frag_stanzas, cell_r, merge, fs, content_w, content_h)
+
+    def fits(m: dict) -> bool:
+        return m["over_budget"] <= 0.01
+
+    hi_fs = cfg["han_size"]
+    m_hi = metrics_at(hi_fs)
+    if fits(m_hi):
+        m_hi["feasible"] = True
+        return hi_fs, m_hi
+    lo, hi, best = ABS_MIN_FS, hi_fs, None
+    for _ in range(24):
+        mid = (lo + hi) / 2
+        m = metrics_at(mid)
+        if fits(m):
+            lo, best = mid, m
+        else:
+            hi = mid
+    if best is not None:
+        best["feasible"] = True
+        return lo, best
+    m_lo = metrics_at(lo)
+    m_lo["feasible"] = fits(m_lo)
+    return lo, m_lo
+
+
+def _choose_verse_layout(cfg: dict, ann: Annotation) -> dict:
+    """诗行排版决策：行组织模式（一小句一行 / 按栏宽贪心合并）+ 二分求字号。
+
+    couplet=false → 每行一小句；true → 按栏宽贪心装行；auto → 两者择优：
+      - 默认模式：能在下限字号之上一页（或自然单页）放下时，取字号更大者
+        （平局取舒展的一句一行——绝句/律诗竖版教材风）；都低于下限 →
+        字号钳到下限重新组织行，取页数更少者（长诗自然分页）。
+      - target_pages：在（模式×边距档×行距档）组合中选「达标且字号最大」
+        的方案（舒适下限分层）；全不达标 → 绝对下限取页数最少并如实报告。
     选定后把边距/行距调整写回 cfg（_css_vars/_page_css 直接使用）。
     """
     cell_r = _cell_ratio(cfg, ann)
+    frag_stanzas = _stanza_fragments(ann)
     target = cfg.get("target_pages", 0)
     couplet = cfg.get("couplet", "auto")
-    pairs = [bool(couplet)] if isinstance(couplet, bool) else [False, True]
+    modes = ([True] if couplet is True
+             else ([False] if couplet is False else [False, True]))
 
-    def solve(pair: bool, ms: float = 1.0, gs: float = 1.0) -> dict:
-        trial = dict(cfg)
+    def trial_cfg(ms: float, gs: float) -> dict:
+        t = dict(cfg)
         if ms < 1.0 or gs < 1.0:
-            trial["vgap"] = max(cfg["vgap"] * gs, GAP_MIN)
-            trial["lgap"] = max(cfg["lgap"] * gs, GAP_MIN)
-        content_w, content_h = _page_geometry(trial, ms)
-        return _layout_metrics(trial, ann, cell_r, pair, content_w, content_h)
+            t["vgap"] = max(cfg["vgap"] * gs, GAP_MIN)
+            t["lgap"] = max(cfg["lgap"] * gs, GAP_MIN)
+        return t
+
+    def solve(merge: bool, ms: float = 1.0, gs: float = 1.0):
+        t = trial_cfg(ms, gs)
+        content_w, content_h = _page_geometry(t, ms)
+        if merge and couplet is True:
+            # 联行优先于大字号（couplet=true），但不为联行过度缩字：
+            # 解低于字号下限 → 回退贪心合并，超宽源行自然独占一行
+            fs, m = _solve_fs(t, frag_stanzas, cell_r, merge, content_w, content_h,
+                              whole_line=True,
+                              fs_lo=max(cfg["han_size"] * FIT_FLOOR_K, ABS_MIN_FS))
+            if m.get("feasible"):
+                return fs, m
+        return _solve_fs(t, frag_stanzas, cell_r, merge, content_w, content_h)
 
     if target >= 1:
         comfort = max(cfg["han_size"] * COMFORT_K, COMFORT_MIN_FS)
         m_scales = MARGIN_SCALES if not cfg.get("_margin_set") else (1.0,)
         g_scales = GAP_SCALES if not cfg.get("_gap_set") else (1.0,)
-        # tier 0 = 字号≥舒适下限；tier 1 = 只到绝对下限。先 tier 后字号，
-        # 再少收缩边距/行距，最后偏舒展策略（pair=False）。
         cands = []
-        for pair in pairs:
+        for merge in modes:
             for ms in m_scales:
                 for gs in g_scales:
-                    m = solve(pair, ms, gs)
-                    if m["fs"] < ABS_MIN_FS or \
-                            m["total_h"] > target * m["content_h"] + 0.5:
+                    fs, m = solve(merge, ms, gs)
+                    if not m.get("feasible") or fs < ABS_MIN_FS:
                         continue
-                    tier = 0 if m["fs"] >= comfort else 1
-                    cands.append((tier, -m["fs"], ms, gs, pair is False,
-                                  (ms, gs, pair), m))
+                    tier = 0 if fs >= comfort else 1
+                    cands.append((tier, -fs, ms, gs, merge is False,
+                                  (ms, gs, merge), fs, m))
         if cands:
-            best = min(cands, key=lambda x: x[:5])
-            fs, (ms, gs, pair), m = best[1] * -1, best[5], best[6]
+            b = min(cands, key=lambda x: x[:5])
+            ms, gs, merge = b[5]
+            fs, m = b[6], b[7]
         else:
             # 绝对下限也放不下：字号钳到绝对下限，取页数最少者（如实报告）
             pool = []
-            for pair in pairs:
+            for merge in modes:
                 for ms in m_scales:
                     for gs in g_scales:
-                        m = solve(pair, ms, gs)
-                        fs_use = max(m["fs"], ABS_MIN_FS)
-                        pages = max(1, math.ceil(
-                            (m["header_k"] + m["body_k"]) * fs_use / m["content_h"] - 1e-6))
-                        pool.append((pages, -fs_use, (ms, gs, pair), m, fs_use))
+                        t = trial_cfg(ms, gs)
+                        cw, ch = _page_geometry(t, ms)
+                        m = _layout_metrics_at(t, frag_stanzas, cell_r, merge,
+                                               ABS_MIN_FS, cw, ch)
+                        pool.append((_pages_needed(m), merge is False,
+                                     (ms, gs, merge), m))
             b = min(pool, key=lambda x: (x[0], x[1]))
-            fs, (ms, gs, pair), m = b[4], b[2], b[3]
-        plan = {"pair": pair, "fs": fs, "cell_r": cell_r, "units": m["max_units"],
+            ms, gs, merge = b[2]
+            fs, m = ABS_MIN_FS, b[3]
+        plan = {"pair": merge, "fs": fs, "cell_r": cell_r, "units": m["max_units"],
                 "metrics": m, "target": target,
                 "margin_scale": ms, "gap_scale": gs}
     else:
         floor = max(cfg["han_size"] * FIT_FLOOR_K, ABS_MIN_FS)
-        cands = []
-        for pair in pairs:
-            m = solve(pair)
-            fs = m["fs"] if m["fs"] >= floor else floor   # 触底钳到下限，超页自然分页
-            cands.append({"pair": pair, "fs": fs, "m": m})
-        # 单页放得下且不触底 → 字号大者优先（平局取 S1 舒展）；都触底 → 纵向上限大者
-        ok = [c for c in cands if c["fs"] == c["m"]["fs"]]
-        if ok:
-            best = max(ok, key=lambda c: (c["fs"], c["pair"] is False))
+        best = None
+        for merge in modes:
+            fs, m = solve(merge)
+            if m.get("feasible") and fs >= floor:
+                cand = (fs, merge is False, merge, fs, m)
+                if best is None or cand[:2] > best[:2]:
+                    best = cand
+        if best is not None:
+            merge, fs, m = best[2], best[3], best[4]
         else:
-            best = max(cands, key=lambda c: (c["m"]["fs_v"], c["pair"] is False))
-        pair, fs, m = best["pair"], best["fs"], best["m"]
-        plan = {"pair": pair, "fs": fs, "cell_r": cell_r, "units": m["max_units"],
+            # 都低于下限。宽度是几何硬约束、floor 只是可读性偏好：
+            # 宽度只允许更小字号（≥ABS_MIN）时缩字保完整小句行；
+            # 宽度在 ABS_MIN 也放不下（无句读超长句）才用 floor+字间折行兜底。
+            cw, ch = _page_geometry(cfg)
+            pool = []
+            for mg in modes:
+                fs_w, m_w = _solve_fs_width(cfg, frag_stanzas, cell_r, mg, cw)
+                if m_w.get("feasible") and fs_w < floor:
+                    fs_use, m_use = fs_w, m_w        # 宽度优先于 floor
+                else:
+                    fs_use = floor
+                    m_use = _layout_metrics_at(cfg, frag_stanzas, cell_r, mg,
+                                               floor, cw, ch)
+                pool.append((_pages_needed(m_use), mg is False, mg, fs_use, m_use))
+            b = min(pool, key=lambda x: (x[0], x[1]))
+            merge, fs, m = b[2], b[3], b[4]
+        plan = {"pair": merge, "fs": fs, "cell_r": cell_r, "units": m["max_units"],
                 "metrics": m, "target": 0, "margin_scale": 1.0, "gap_scale": 1.0}
 
-    wrap = fs > m["fs_w"] + 0.01                   # 字号超宽度上限 → 放行句读处折行
-    plan["wrap"] = wrap
-    total_k = m["header_k"] + m["body_k"]          # 高度总系数（fs 的倍数）
-    plan["pages_est"] = max(1, math.ceil(total_k * fs / m["content_h"] - 1e-6))
-    plan["rows_per_stanza"] = m["rows_per_stanza"]
-    # 写回边距/行距调整（_css_vars / _page_css 使用）
+    # 写回边距/行距调整（_css_vars / _page_css 使用）；行宽预算按最终几何算
     if plan["margin_scale"] < 1.0:
         mv, mh = cfg["margin_mm"]
         cfg["margin_mm"] = (max(mv * plan["margin_scale"], MARGIN_MIN_MM),
@@ -486,6 +684,17 @@ def _choose_verse_layout(cfg: dict, ann: Annotation) -> dict:
     if plan["gap_scale"] < 1.0:
         cfg["vgap"] = max(cfg["vgap"] * plan["gap_scale"], GAP_MIN)
         cfg["lgap"] = max(cfg["lgap"] * plan["gap_scale"], GAP_MIN)
+    # 末页孤行由结构保证：flow 节最后两行包 widow 组（见 build_poem_body），
+    # 整组进上一页或整组下页，末页不会只剩一行
+    content_w, content_h = _page_geometry(cfg)
+    m["fs"] = plan["fs"]
+    row_budget = _column_budget(cfg, plan["fs"], content_w)
+    plan["row_budget"] = row_budget
+    plan["wrap"] = any(          # 存在超宽行（离群标题等）→ 该行行内折行
+        _line_units(row, cell_r) > row_budget + 0.01
+        for st in m["dl_stanzas"] for row in st)
+    plan["pages_est"] = _pages_needed(m)
+    plan["rows_per_stanza"] = m["rows_per_stanza"]
     return plan
 
 
@@ -589,10 +798,15 @@ def build_poem_body(ann: Annotation, cfg: dict, plan: dict, *, tian: bool = Fals
     tian_k = 2.0 * cfg["copy_rows"] if cfg["copy_rows"] else 0.0
     content_h = plan["metrics"]["content_h"]
     header_k = plan["metrics"]["header_k"]
+    row_budget = plan.get("row_budget") or math.inf
     for i, dl in enumerate(plan["metrics"]["dl_stanzas"]):
         items: list[str] = []
         for row in dl:
-            v = line_cells(row, cfg["mode"], poem=True, allow_break=plan["wrap"])
+            # 折行按行判定：仅超宽行（离群标题/无句读长句）在行内折，
+            # 断点优先小句边界（句读后），其次开启标点前，最后字间
+            over = _line_units(row, plan["cell_r"]) > row_budget + 0.01
+            v = line_cells(row, cfg["mode"], poem=True, allow_break=over,
+                           clause_only_break=True)
             if tian:
                 n = sum(1 for t in row if t.is_han)
                 grp = f'<div class="v">{v}</div>' + _tian_row(n, wrap=n > 18)
@@ -602,7 +816,11 @@ def build_poem_body(ann: Annotation, cfg: dict, plan: dict, *, tian: bool = Fals
         stanza_k = len(dl) * (row_k + cfg["vgap"] + tian_k) - cfg["vgap"]
         # 第一节 keep 还须连同标题块放进首页：否则整节后移会让标题孤立成页
         budget_k = stanza_k + (header_k if i == 0 else 0.0)
-        cls = "stanza" if budget_k * fs <= content_h + 0.5 else "stanza flow"
+        flow = budget_k * fs > content_h + 0.5
+        if flow and len(items) >= 4 and not tian:
+            # 末页孤行防护：flow 节最后两行成组，整组上收或整组下移
+            items = items[:-2] + [f'<div class="widow-keep">{items[-2]}{items[-1]}</div>']
+        cls = "stanza flow" if flow else "stanza"
         out.append(f'<div class="{cls}">{"".join(items)}</div>')
     return "".join(out)
 
