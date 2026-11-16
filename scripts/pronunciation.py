@@ -30,10 +30,16 @@ if _VENDOR.is_dir() and str(_VENDOR) not in sys.path:
     sys.path.insert(0, str(_VENDOR))
 
 try:
-    from pypinyin import pinyin as _pinyin, Style
+    from pypinyin import pinyin as _pinyin, Style, load_phrases_dict as _load_pd
+    from pypinyin.phrases_dict import phrases_dict as _all_phrases
     from pypinyin.seg import mmseg
 except Exception as _e:  # pragma: no cover - vendored copy ships with the skill
     raise ImportError(f"内置 pypinyin 加载失败（scripts/_vendor/pypinyin）: {_e}") from _e
+
+# 在"基础词典 + 教材补充词典"合并结果上重训分词器：curated 词条（如
+# "游子/西子/赋得"）参与分词后，命中字不再被 _context_fixes 启发式
+# 当作单字结构助词误改（"赋得"→de 的教训），读音也直接取词典。
+_load_pd(_all_phrases)
 
 # 统编教材诗歌读音的"古今/审音分歧"提示（出现在文本中时写入 notes）
 with open(_VENDOR / "pypinyin" / "curated_phrases.json", encoding="utf-8") as _fp:
@@ -409,6 +415,12 @@ def _locate(a: Annotation, ov: dict) -> list[tuple[Token, str]]:
             raise PinyinSpecError(
                 f"line={ln}, char={cn} 未命中（正文共 {total} 个非空行；"
                 "行号按非空行从 1 计，字序号只数汉字）")
+        guard = ov.get("expect")
+        if guard and targets[0].text != guard:
+            # 原文行/字序变动后序号会错位——守卫字符防止拼音悄悄标到别的字上
+            raise PinyinSpecError(
+                f"line={ln}, char={cn} 处汉字是「{targets[0].text}」，"
+                f"与守卫字符 expect=「{guard}」不符（正文可能已修改，请重对位置）")
 
     elif has_phrase:
         phrase = ov["phrase"]
@@ -514,7 +526,7 @@ def _build_review(a: Annotation, rule_review: list[dict]) -> list[dict]:
             out[t.index].update(line=ln, char_pos=hn)
             continue
         het = _pinyin(t.text, style=Style.TONE, heteronym=True)
-        alts = sorted({s[0] for s in het[0]}) if het and het[0] else []
+        alts = sorted({s for s in het[0]}) if het and het[0] else []
         if len(alts) < 2:          # 无真实二读（如 音/坐）不打扰用户
             continue
         out[t.index] = {

@@ -2,13 +2,16 @@
 """PDF 实测体检：用本机 Chrome/Edge 无头打印真实 PDF 后核对分页质量。
 
 检查项：
-1. 实际页数 == layout.pages_est（估算与真实分页一致）；
-2. 标题不孤立：第 1 页若有标题，其下方应有正文/作者内容；
-3. 汉字字号 ≈ han_size_pt（±8%，取正文汉字 span 的中位字号）；
-4. 拼音对应：抽若干汉字，其正上方（同 x 中心）存在拼音 span；
-5. 孤尾短行：按 y 坐标聚类视觉行（fitz splitlines 的 span 顺序
-   不可信——"磨。"式假象），以句读结尾且 ≤3 字的行视为孤尾
-   （完整短小句如"江南好，"以逗号结尾不算）。
+1. 实际页数（与 layout.pages_est 对照报告；估算含分页损耗近似，±1 页
+   不视为失败，仅供人工核对）；
+2. 页面尺寸与方向 == spec 声明（A4 纵 = 595×842pt，横版宽>高，±2pt）；
+3. 标题不孤立：第 1 页若有标题，其下方应有正文/作者内容；
+4. 汉字字号 ≈ han_size_pt（±8%，取正文汉字 span 的中位字号）；
+5. 拼音对应：抽若干汉字，其正上方（同 x 中心）存在拼音 span；
+6. 孤尾短行：按 y 坐标聚类视觉行（fitz splitlines 的 span 顺序
+   不可信——"磨。"式假象），以句读结尾且 ≤3 字的行视为孤尾；
+7. 正文完整性：源 text 的汉字序列按原顺序完整出现在 PDF 中
+   （保序子序列比对，标题/页眉等额外汉字不干扰）。
 
 用法：python tests/pdf_check.py case1.html case2.html …
       （HTML 由 generate.py --pdf 同名导出 PDF；无 PDF 时报 skip 并退出 0）
@@ -23,6 +26,10 @@ import statistics
 import subprocess
 import sys
 from pathlib import Path
+
+_PAGE_PT = {  # mm → pt（72dpi）
+    "A4": (595.28, 841.89), "A5": (419.53, 595.28), "LETTER": (612.0, 792.0),
+}
 
 def _find_browser() -> str | None:
     import os
@@ -47,32 +54,36 @@ def export_pdf(exe: str, html: Path) -> Path | None:
     return pdf if r.returncode == 0 and pdf.is_file() and pdf.stat().st_size else None
 
 
-def _visual_rows(page) -> list[str]:
-    """按 y 坐标聚类视觉行，返回每行的汉字+标点序列。
+def _visual_rows(page, columns: int = 1) -> list[str]:
+    """按栏（先左后右）+ y 坐标聚类视觉行，返回每行的汉字+标点序列。
 
-    fitz 的 splitlines 按 span 顺序输出，一行会被拆散（句号 span 单独
-    成行造成"磨。"假象）——必须按 baseline 聚类。
+    fitz 的 splitlines/文本流按视觉行序输出，双栏时左右栏内容交错
+    （句号 span 单独成行造成"磨。"假象、顺序也非阅读序）——必须
+    先按栏分组（页面中线），栏内再按 baseline 聚类。
     """
     spans = []
+    mid = page.rect.width / 2
     for blk in page.get_text("dict")["blocks"]:
         for ln in blk.get("lines", []):
             for sp in ln["spans"]:
                 if sp["text"].strip():
-                    spans.append((sp["bbox"][1], sp["bbox"][0], sp["text"]))
+                    col = 0 if (columns < 2 or sp["bbox"][0] < mid) else 1
+                    spans.append((col, sp["bbox"][1], sp["bbox"][0], sp["text"]))
     spans.sort()
-    rows: list[list[float, list]] = []
-    for y, x, t in spans:
-        if rows and abs(rows[-1][0] - y) <= 4:
-            rows[-1][1].append((x, t))
-        else:
-            rows.append([y, [(x, t)]])
     out = []
-    for _y, items in rows:
-        items.sort()
-        han = "".join(re.findall(
-            r"[\u4e00-\u9fff，。、；：！？《》〔〕（）]", "".join(t for _, t in items)))
-        if han:
-            out.append(han)
+    for col in (0, 1) if columns >= 2 else (0,):
+        rows: list[list[float, list]] = []
+        for _c, y, x, t in ((c, y, x, t) for c, y, x, t in spans if c == col):
+            if rows and abs(rows[-1][0] - y) <= 4:
+                rows[-1][1].append((x, t))
+            else:
+                rows.append([y, [(x, t)]])
+        for _y, items in rows:
+            items.sort()
+            han = "".join(re.findall(
+                r"[\u4e00-\u9fff，。、；：！？《》〔〕（）]", "".join(t for _, t in items)))
+            if han:
+                out.append(han)
     return out
 
 
@@ -91,7 +102,11 @@ def check(html: Path) -> dict:
     problems: list[str] = []
     body_sizes: list[float] = []
     py_ok = py_total = 0
+    pdf_han_seq = ""                      # 全文档汉字序列（保序完整性比对）
+    first_rect = None
     for i, page in enumerate(doc):
+        if i == 0:
+            first_rect = page.rect
         d = page.get_text("dict")
         han_spans, py_spans = [], []
         han = 0
@@ -126,13 +141,31 @@ def check(html: Path) -> dict:
                        and 0 < y0 - p["bbox"][3] < (x1 - x0) * 2.5
                        for p in py_spans):
                     py_ok += 1
-        # 孤尾短行：视觉行以句号/问号结尾且正文 ≤3 字（完整短小句"江南好，"
-        # 以逗号结尾不算；问句"能不忆江南？"5 字不算）
-        for han in _visual_rows(page):
+        # 孤尾短行 + 正文序列（双栏按左栏后右栏的阅读序拼接）
+        cols_n = int(spec.get("columns") or 1)
+        for han in _visual_rows(page, cols_n):
+            pdf_han_seq += han
             core = han.rstrip("。？，、；：")
             if han.endswith(("。", "？")) and 0 < len(core) <= 3:
                 problems.append(f"第{i+1}页孤尾短行「{han}」")
     doc.close()
+
+    # 页面尺寸/方向 == spec 声明
+    page_key = str(spec.get("page") or "A4").upper()
+    want_w, want_h = _PAGE_PT.get(page_key, _PAGE_PT["A4"])
+    if spec.get("landscape"):
+        want_w, want_h = want_h, want_w
+    if (abs(first_rect.width - want_w) > 2 or abs(first_rect.height - want_h) > 2):
+        problems.append(f"页面尺寸 {first_rect.width:.0f}×{first_rect.height:.0f}pt "
+                        f"≠ {page_key}{' 横版' if spec.get('landscape') else ' 纵版'} "
+                        f"{want_w:.0f}×{want_h:.0f}pt")
+
+    # 正文完整性：源 text 汉字序列是 PDF 汉字序列的保序子序列
+    src_seq = "".join(re.findall(r"[\u4e00-\u9fff]", spec.get("text", "")))
+    if src_seq:
+        it = iter(pdf_han_seq)
+        if not all(ch in it for ch in src_seq):
+            problems.append(f"正文汉字未按原顺序完整出现（源 {len(src_seq)} 字）")
     if py_total >= 10 and py_ok / py_total < 0.9:
         problems.append(f"拼音对应率 {py_ok}/{py_total} 偏低")
 
