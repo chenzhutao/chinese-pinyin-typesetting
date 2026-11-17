@@ -461,19 +461,21 @@ def _layout_metrics_at(cfg: dict, frag_stanzas, cell_r: float, merge: bool,
         header_k += 0.62 + 0.8                        # 姓名/日期栏
     tian_k = 2.0 * cfg["copy_rows"] if cfg["copy_rows"] else 0.0
     rows_per_stanza = [len(dl) for dl in dl_stanzas] or [1]
-    # 普通节保持原子；超出一页高度的 flow 节允许浏览器跨栏。
-    # 旧算法把单个超高节全部计入一栏，导致双栏估算 2 页而实际仅 1 页。
-    # 仅拆分超过页高的节，避免改变短节的 break-inside:avoid 语义。
+    # 与 build_poem_body 的 flow 判定一致：首节须连同标题计算。
+    # flow 节在 Chromium column-fill:balance 下可跨栏；普通节保持原子。
     if cols > 1:
         row_height_k = row_k + cfg["vgap"] + tian_k
         capacity = max(1, int((content_h / fs + cfg["vgap"]) / row_height_k))
         packed_rows = []
-        for n in rows_per_stanza:
+        for i, n in enumerate(rows_per_stanza):
             stanza_height = n * row_height_k - cfg["vgap"]
-            if stanza_height * fs > content_h + 0.5:
-                packed_rows.extend([capacity] * (n // capacity))
-                if n % capacity:
-                    packed_rows.append(n % capacity)
+            budget_height = stanza_height + (header_k if i == 0 else 0.0)
+            if budget_height * fs > content_h + 0.5:
+                # 可跨栏的节均衡分配；单栏容量是硬上限。
+                chunk = max(1, min(capacity, math.ceil(n / cols)))
+                packed_rows.extend([chunk] * (n // chunk))
+                if n % chunk:
+                    packed_rows.append(n % chunk)
             else:
                 packed_rows.append(n)
     else:
