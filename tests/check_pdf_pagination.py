@@ -47,6 +47,33 @@ def main():
             estimated = result["layout"]["pages_est"]
             page.goto(html_path.resolve().as_uri())
             page.emulate_media(media="print")
+            if name == "two_columns":
+                details = page.evaluate("""() => {
+                    const main = document.querySelector('main');
+                    const sheet = document.querySelector('.sheet');
+                    const header = document.querySelector('header.hd');
+                    const stanzas = [...document.querySelectorAll('.stanza')];
+                    const cs = getComputedStyle(main);
+                    return {
+                        columns: cs.columnCount,
+                        columnFill: cs.columnFill,
+                        columnGap: cs.columnGap,
+                        sheetHeight: sheet?.getBoundingClientRect().height,
+                        mainHeight: main?.getBoundingClientRect().height,
+                        mainScrollHeight: main?.scrollHeight,
+                        headerHeight: header?.getBoundingClientRect().height,
+                        stanzas: stanzas.map(el => ({
+                            className: el.className,
+                            height: el.getBoundingClientRect().height,
+                            rows: el.querySelectorAll('.v').length,
+                            breakInside: getComputedStyle(el).breakInside
+                        }))
+                    };
+                }""")
+                print("two_columns DOM diagnostics: " +
+                      json.dumps(details, ensure_ascii=False), flush=True)
+                print("two_columns layout diagnostics: " +
+                      json.dumps(result["layout"], ensure_ascii=False), flush=True)
             pdf = page.pdf(prefer_css_page_size=True, print_background=True)
             pdf_path = work / (name + ".pdf")
             pdf_path.write_bytes(pdf)
