@@ -16,6 +16,11 @@ This tool places tone-marked Hanyu Pinyin above individual Chinese characters. I
 
 ## Preview the results
 
+<img src="assets/previews/poem.png" alt="Annotated classical poem" width="46%"> <img src="assets/previews/reading.png" alt="Annotated reading passage" width="46%">
+
+<img src="assets/previews/columns.png" alt="Two-column reading layout" width="46%"> <img src="assets/previews/worksheet.png" alt="Chinese handwriting worksheet" width="46%">
+
+
 
 **Use the Live preview links to see rendered HTML in your browser without downloading the repository.** These links use a third-party HTML Preview service. If the service is unavailable, download the project and open the original HTML locally.
 
