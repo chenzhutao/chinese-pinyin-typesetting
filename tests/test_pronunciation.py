@@ -203,6 +203,46 @@ def test_override_wins_over_sandhi():
                     overrides=[{"char": "一", "pinyin": "yī"}])
     assert han_at(a, 1, 1).pinyin == "yī"
 
+def test_override_priority_over_dictionary_and_context_rules():
+    # 词典读音 dé 被用户指定的轻声覆盖；结构助词规则也不能反向覆盖。
+    a = pr.annotate("赋得古原草送别",
+                    overrides=[{"char": "得", "pinyin": "de"}])
+    token = next(t for t in a.han_tokens() if t.text == "得")
+    assert token.pinyin == "de" and token.overridden
+    assert not any(r["index"] == token.index for r in a.review)
+
+    # 上下文规则将「长」判为 zhǎng，人工指定 cháng 后应以人工结果为准。
+    a = pr.annotate("他长得很高。",
+                    overrides=[{"char": "长", "pinyin": "cháng"}])
+    token = next(t for t in a.han_tokens() if t.text == "长")
+    assert token.pinyin == "cháng" and token.overridden
+    assert not any(r["index"] == token.index for r in a.review)
+
+
+def test_override_priority_over_yi_bu_sandhi_and_restore():
+    # 覆盖在变调处理之后应用；一、不均应保留人工指定读音。
+    a = pr.annotate("一行白鹭上青天，不是",
+                    overrides=[
+                        {"char": "一", "pinyin": "yī"},
+                        {"char": "不", "pinyin": "bù"},
+                    ])
+    tokens = list(a.han_tokens())
+    yi = next(t for t in tokens if t.text == "一")
+    bu = next(t for t in tokens if t.text == "不")
+    assert yi.pinyin == "yī" and yi.overridden
+    assert bu.pinyin == "bù" and bu.overridden
+
+
+def test_override_phrase_priority_and_order():
+    # phrase 覆盖多音词整段；若同一位置出现多条 override，后者按顺序最终生效。
+    a = pr.annotate("赋得古原草送别",
+                    overrides=[
+                        {"phrase": "赋得", "pinyin": "fù dé"},
+                        {"char": "得", "pinyin": "de"},
+                    ])
+    got = [(t.text, t.pinyin, t.overridden) for t in a.han_tokens()[:2]]
+    assert got == [("赋", "fù", True), ("得", "de", True)]
+
 
 # ---- review / notes / 拼音写法 -------------------------------------------
 
