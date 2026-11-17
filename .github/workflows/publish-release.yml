@@ -26,8 +26,6 @@ jobs:
             --repo ${{ github.repository }} \
             --target main \
             --title "v1.3.3" \
-            --generate-notes \
-            --notes-start-tag v1.3.2 \
             --notes "### Highlights
           - Improved PDF pagination estimation and regression coverage.
           - Added curated textbook and classical-poem pronunciation fixtures.
