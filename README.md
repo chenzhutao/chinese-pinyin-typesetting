@@ -14,22 +14,21 @@
 - **打印和手机阅读**：支持 A4、横向或纵向、单栏或双栏；可以指定期望页数，自动优化字号、行距和边距。
 - **纠正读音、继续修改**：发现多音字读错时可以指定正确读音；已经生成的文档也能修改排版后重新导出。
 
-## 看看排版效果
+## 在线查看排版效果
 
-仓库提供了可直接在浏览器打开的 HTML 示例：
+**点击下面的「在线预览」，可以直接看到渲染后的页面，不需要下载仓库。** 预览通过第三方 HTML Preview 服务打开 GitHub 中的 HTML 文件；如果预览服务不可用，可以下载项目后用浏览器打开原文件。
 
-| 想看什么 | 示例 |
-| --- | --- |
-| 古诗注音 | [《静夜思》](examples/1_jingyesi_poem.html) · [《春晓》](examples/2_chunxiao_poem.html) |
-| 较长的古诗 | [《望庐山瀑布》](examples/3_wanglushan_poem.html) |
-| 课文和短文 | [《外婆的小菜园》](examples/6_duanwen_reading.html) |
-| 双栏阅读 | [双栏短文](examples/11_duanwen_twocol.html) |
-| 只看汉字 | [无拼音背诵版](examples/7_huixiang_hanzi.html) |
-| 拼音默写 | [看拼音写汉字](examples/5_shanxing_worksheet.html) |
-| 标调练习 | [《春晓》标调练习](examples/8_chunxiao_blankpy.html) |
-| 田字格默写 | [《静夜思》默写练习](examples/9_jingyesi_wshanzi.html) |
+| 类型 | 在线预览 | 原始文件 |
+| --- | --- | --- |
+| 古诗注音：《静夜思》 | [在线预览](https://htmlpreview.github.io/?https://github.com/chenzhutao/chinese-pinyin-typesetting/blob/main/examples/1_jingyesi_poem.html) | [HTML](examples/1_jingyesi_poem.html) |
+| 古诗注音：《春晓》 | [在线预览](https://htmlpreview.github.io/?https://github.com/chenzhutao/chinese-pinyin-typesetting/blob/main/examples/2_chunxiao_poem.html) | [HTML](examples/2_chunxiao_poem.html) |
+| 课文阅读 | [在线预览](https://htmlpreview.github.io/?https://github.com/chenzhutao/chinese-pinyin-typesetting/blob/main/examples/6_duanwen_reading.html) | [HTML](examples/6_duanwen_reading.html) |
+| 双栏阅读 | [在线预览](https://htmlpreview.github.io/?https://github.com/chenzhutao/chinese-pinyin-typesetting/blob/main/examples/11_duanwen_twocol.html) | [HTML](examples/11_duanwen_twocol.html) |
+| 看拼音写汉字 | [在线预览](https://htmlpreview.github.io/?https://github.com/chenzhutao/chinese-pinyin-typesetting/blob/main/examples/5_shanxing_worksheet.html) | [HTML](examples/5_shanxing_worksheet.html) |
+| 田字格默写 | [在线预览](https://htmlpreview.github.io/?https://github.com/chenzhutao/chinese-pinyin-typesetting/blob/main/examples/9_jingyesi_wshanzi.html) | [HTML](examples/9_jingyesi_wshanzi.html) |
+| 标调练习 | [在线预览](https://htmlpreview.github.io/?https://github.com/chenzhutao/chinese-pinyin-typesetting/blob/main/examples/8_chunxiao_blankpy.html) | [HTML](examples/8_chunxiao_blankpy.html) |
 
-**提示**：GitHub 可能显示 HTML 源码。下载仓库后，用浏览器打开示例文件即可看到实际版式。
+其他示例见 [examples 目录](examples/)。
 
 ## 怎么使用？
 
