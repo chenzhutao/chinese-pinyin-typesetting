@@ -79,7 +79,7 @@ def test_one_verse_per_line_and_stanza_groups():
 
 
 def test_reading_template_keeps_paragraphs():
-    text = "秋天的雨，是一把钥匙。\n\n它把秋天的大门打开了。\n2024 年 10 月 1 日。"
+    text = "外婆的小菜园在屋后的坡地上，一年四季都热热闹闹。\n\n春天，韭菜先冒出尖尖的绿芽。\n2024 年 10 月 1 日。"
     out = make({"title": "课文", "text": text, "template": "reading"}, "e.html")
     doc = out.read_text(encoding="utf-8")
     assert doc.count('<p class="para">') == 3            # 空行分段保留
@@ -109,7 +109,7 @@ def test_flow_clusters_bind_punctuation():
 
 
 def test_first_line_indent_two_han():
-    doc = make({"title": "课", "text": "秋天的雨，是一把钥匙。", "template": "reading"},
+    doc = make({"title": "课", "text": "外婆的小菜园在屋后的坡地上，一年四季都热热闹闹。", "template": "reading"},
                "ind1.html").read_text(encoding="utf-8")
     assert "text-indent: calc(var(--cell) * 2)" in doc    # 缩进=2 个注音格
     ws = make({"title": "练习",

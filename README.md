@@ -28,7 +28,7 @@
 | [3_wanglushan_poem.html](examples/3_wanglushan_poem.html) | 《望庐山瀑布》古诗背诵 | poem / both |
 | [4_huixiang_cuui.html](examples/4_huixiang_cuui.html) | 《回乡偶书》，"衰"人工纠正为旧读 cuī | poem / both + override |
 | [5_shanxing_worksheet.html](examples/5_shanxing_worksheet.html) | 《山行》看拼音写汉字 | worksheet / pinyin |
-| [6_duanwen_reading.html](examples/6_duanwen_reading.html) | 《秋天的雨（节选）》课文阅读 | reading / both |
+| [6_duanwen_reading.html](examples/6_duanwen_reading.html) | 《外婆的小菜园》原创短文 | reading / both |
 | [7_huixiang_hanzi.html](examples/7_huixiang_hanzi.html) | 《回乡偶书》无拼音背诵版 | poem / hanzi |
 | [8_chunxiao_blankpy.html](examples/8_chunxiao_blankpy.html) | 《春晓》标调练习 | worksheet / blank_pinyin |
 | [9_jingyesi_wshanzi.html](examples/9_jingyesi_wshanzi.html) | 《静夜思》田字格默写 | worksheet / hanzi |
@@ -78,7 +78,7 @@ stdout 返回 JSON 摘要（含 `review` 多音字提示），退出码 0/2。�
 
 ## 版本信息
 
-当前 **v1.1.4**（2026-11-14）· MIT（见 [SKILL.md](SKILL.md) 头部声明）· 发布包：[Release v1.1.4](https://github.com/chenzhutao/chinese-pinyin-typesetting/releases/tag/v1.1.4)
+当前 **v1.1.4**（2026-11-14）· 项目自身：MIT（[LICENSE](LICENSE)，仅适用于本项目原创代码与内容）；内置 pypinyin 及拼音数据适用各自许可证（详见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)）· 发布包：[Release v1.1.4](https://github.com/chenzhutao/chinese-pinyin-typesetting/releases/tag/v1.1.4)
 
 - v1.1.4：拼音默认字号提升至汉字的 55%
 - v1.1.3：修复 phrase + all 定位纠音崩溃；首个公开版本
