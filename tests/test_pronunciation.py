@@ -3,6 +3,7 @@
 教材读音、overrides 定位与守卫、一/不 变调、轻声、原文不污染。"""
 
 import sys
+import json
 from pathlib import Path
 
 import pytest
@@ -285,26 +286,35 @@ def test_review_alternatives_full_syllables():
 
 
 # ---------------------------------------------------------------------------
-# 教材与古诗读音回归样本：按完整语境检查，不依赖分词实现细节
-# 新增已核实的误读时，优先在这里补一条测试，再修改词典或规则。
+# 教材与古诗读音样本库：数据与测试逻辑分离
 # ---------------------------------------------------------------------------
 
-@pytest.mark.parametrize("text, target, expected", [
-    ("赋得古原草送别", "得", "dé"),
-    ("欲把西湖比西子。", "子", "zǐ"),
-    ("慈母手中线，游子身上衣。", "子", "zǐ"),
-    ("风吹草低见牛羊", "见", "xiàn"),
-    ("千里江陵一日还", "还", "huán"),
-    ("远上寒山石径斜", "斜", "xié"),
-    ("他跑得很快。", "得", "de"),
-    ("妈妈看着弟弟。", "弟", "dì"),
-])
-def test_verified_reading_regression(text, target, expected):
-    """回归检查完整语境中的目标字，防止词典和启发式互相覆盖。"""
-    annotation = pr.annotate(text)
-    matches = [t.pinyin for t in annotation.han_tokens() if t.text == target]
-    if text == "妈妈看着弟弟。":
-        # 该句有两个「弟」：只核对首个音节。
-        assert matches[0] == expected
-    else:
-        assert matches == [expected]
+READING_DATA_PATH = Path(__file__).resolve().parent / "data" / "pronunciation_readings.json"
+
+
+def load_reading_cases():
+    data = json.loads(READING_DATA_PATH.read_text(encoding="utf-8"))
+    assert data["schema_version"] == 1
+    cases = data["cases"]
+    ids = [case["id"] for case in cases]
+    assert len(ids) == len(set(ids)), "读音样本 id 必须唯一"
+    for case in cases:
+        assert case["category"] in ("古诗", "教材", "日常语境")
+        assert isinstance(case["text"], str) and case["text"]
+        assert isinstance(case["target"], str) and len(case["target"]) == 1
+        assert isinstance(case["occurrence"], int) and case["occurrence"] >= 1
+        assert case["text"].count(case["target"]) >= case["occurrence"]
+        assert isinstance(case["pinyin"], str) and case["pinyin"]
+    return cases
+
+
+@pytest.mark.parametrize("case", load_reading_cases(), ids=lambda c: c["id"])
+def test_verified_reading_regression(case):
+    """逐字按出现次数定位，避免相同汉字重复出现时误判。"""
+    tokens = [t for t in pr.annotate(case["text"]).han_tokens()
+              if t.text == case["target"]]
+    actual = tokens[case["occurrence"] - 1].pinyin
+    assert actual == case["pinyin"], (
+        f'{case["id"]}: {case["target"]} 第 {case["occurrence"]} 次'
+        f'应读 {case["pinyin"]}，实际为 {actual}'
+    )
