@@ -4,6 +4,7 @@ on:
   push:
     paths:
       - 'tests/test_pronunciation.py'
+      - 'tests/data/**'
       - 'scripts/pronunciation.py'
       - 'scripts/vendor/**'
       - '.github/workflows/pronunciation-tests.yml'
