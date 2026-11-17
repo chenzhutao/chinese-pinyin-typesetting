@@ -181,7 +181,7 @@ body.cols-2 main {
   column-gap: calc(var(--fs) * 2.5);
   column-fill: balance;
 }
-body.cols-2 .stanza { break-inside: avoid; }   /* 节不跨栏：屏幕分栏也生效（打印规则见下） */
+body.cols-2 .stanza:not(.flow) { break-inside: avoid; }  /* 节不跨栏（超高 .flow 节除外） */
 
 /* ---- 移动端：按最长行整体缩放字号（--fs 及全部派生变量级联），
         避免水平溢出；仅对诗行排版（body.auto-clamp）生效 ---- */
@@ -207,8 +207,16 @@ body.cols-2 .stanza { break-inside: avoid; }   /* 节不跨栏：屏幕分栏也
     margin: 0; padding: 0; box-shadow: none; max-width: none;
     width: auto; container-type: normal;
   }
-  .stanza, .ws-line, .tian-row { break-inside: avoid; page-break-inside: avoid; }
-  header.hd, .grp-head { break-after: avoid-page; page-break-after: avoid; }
+  /* 原子单位：一个展示行（通常一联）不拆；书写格不与诗句分离 */
+  .v, .vgrp, .ws-line, .tian-row { break-inside: avoid; page-break-inside: avoid; }
+  /* 节默认 keep（不跨页）；超高节由渲染器标 .flow → 行边界自然分页 */
+  .stanza { break-inside: avoid; page-break-inside: avoid; }
+  .stanza.flow { break-inside: auto; page-break-inside: auto; }
+  /* 标题块/姓名栏自身原子，且黏住后文：标题绝不孤立成页 */
+  header.hd, .ws-meta, .grp-head {
+    break-inside: avoid; page-break-inside: avoid;
+    break-after: avoid-page; page-break-after: avoid;
+  }
   .para { orphans: 2; widows: 2; }
 }
 
@@ -270,7 +278,7 @@ main { text-align: center; }
 <div class="sheet">
   <header class="hd"><div class="t-line"><ruby class="c"><span class="h">静</span></ruby><ruby class="c"><span class="h">夜</span></ruby><ruby class="c"><span class="h">思</span></ruby></div><div class="a-line">李白</div></header>
   <div class="ws-meta"><span>姓名<span class="blank"></span></span><span>日期<span class="blank"></span></span><span>得分<span class="blank"></span></span></div>
-  <main><div class="stanza"><div class="v"><ruby class="c"><span class="h">床</span></ruby><ruby class="c"><span class="h">前</span></ruby><ruby class="c"><span class="h">明</span></ruby><ruby class="c"><span class="h">月</span></ruby><ruby class="c"><span class="h">光</span></ruby><ruby class="c p tuck"><span class="h">，</span></ruby><wbr></div><div class="tian-row"><span class="tz"></span><wbr><span class="tz"></span><wbr><span class="tz"></span><wbr><span class="tz"></span><wbr><span class="tz"></span></div><div class="v"><ruby class="c"><span class="h">疑</span></ruby><ruby class="c"><span class="h">是</span></ruby><ruby class="c"><span class="h">地</span></ruby><ruby class="c"><span class="h">上</span></ruby><ruby class="c"><span class="h">霜</span></ruby><ruby class="c p tuck"><span class="h">。</span></ruby><wbr></div><div class="tian-row"><span class="tz"></span><wbr><span class="tz"></span><wbr><span class="tz"></span><wbr><span class="tz"></span><wbr><span class="tz"></span></div><div class="v"><ruby class="c"><span class="h">举</span></ruby><ruby class="c"><span class="h">头</span></ruby><ruby class="c"><span class="h">望</span></ruby><ruby class="c"><span class="h">明</span></ruby><ruby class="c"><span class="h">月</span></ruby><ruby class="c p tuck"><span class="h">，</span></ruby><wbr></div><div class="tian-row"><span class="tz"></span><wbr><span class="tz"></span><wbr><span class="tz"></span><wbr><span class="tz"></span><wbr><span class="tz"></span></div><div class="v"><ruby class="c"><span class="h">低</span></ruby><ruby class="c"><span class="h">头</span></ruby><ruby class="c"><span class="h">思</span></ruby><ruby class="c"><span class="h">故</span></ruby><ruby class="c"><span class="h">乡</span></ruby><ruby class="c p tuck"><span class="h">。</span></ruby><wbr></div><div class="tian-row"><span class="tz"></span><wbr><span class="tz"></span><wbr><span class="tz"></span><wbr><span class="tz"></span><wbr><span class="tz"></span></div></div></main>
+  <main><div class="stanza"><div class="vgrp"><div class="v"><ruby class="c"><span class="h">床</span></ruby><ruby class="c"><span class="h">前</span></ruby><ruby class="c"><span class="h">明</span></ruby><ruby class="c"><span class="h">月</span></ruby><ruby class="c"><span class="h">光</span></ruby><ruby class="c p tuck"><span class="h">，</span></ruby><wbr></div><div class="tian-row"><span class="tz"></span><wbr><span class="tz"></span><wbr><span class="tz"></span><wbr><span class="tz"></span><wbr><span class="tz"></span></div></div><div class="vgrp"><div class="v"><ruby class="c"><span class="h">疑</span></ruby><ruby class="c"><span class="h">是</span></ruby><ruby class="c"><span class="h">地</span></ruby><ruby class="c"><span class="h">上</span></ruby><ruby class="c"><span class="h">霜</span></ruby><ruby class="c p tuck"><span class="h">。</span></ruby><wbr></div><div class="tian-row"><span class="tz"></span><wbr><span class="tz"></span><wbr><span class="tz"></span><wbr><span class="tz"></span><wbr><span class="tz"></span></div></div><div class="vgrp"><div class="v"><ruby class="c"><span class="h">举</span></ruby><ruby class="c"><span class="h">头</span></ruby><ruby class="c"><span class="h">望</span></ruby><ruby class="c"><span class="h">明</span></ruby><ruby class="c"><span class="h">月</span></ruby><ruby class="c p tuck"><span class="h">，</span></ruby><wbr></div><div class="tian-row"><span class="tz"></span><wbr><span class="tz"></span><wbr><span class="tz"></span><wbr><span class="tz"></span><wbr><span class="tz"></span></div></div><div class="vgrp"><div class="v"><ruby class="c"><span class="h">低</span></ruby><ruby class="c"><span class="h">头</span></ruby><ruby class="c"><span class="h">思</span></ruby><ruby class="c"><span class="h">故</span></ruby><ruby class="c"><span class="h">乡</span></ruby><ruby class="c p tuck"><span class="h">。</span></ruby><wbr></div><div class="tian-row"><span class="tz"></span><wbr><span class="tz"></span><wbr><span class="tz"></span><wbr><span class="tz"></span><wbr><span class="tz"></span></div></div></div></main>
   
 </div>
 <script type="application/json" id="cpt-spec">{"title":"静夜思","author":"李白","template":"worksheet","mode":"hanzi","text":"床前明月光，疑是地上霜。\n举头望明月，低头思故乡。","_template":"worksheet"}</script>

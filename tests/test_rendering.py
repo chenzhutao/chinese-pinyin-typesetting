@@ -275,7 +275,7 @@ def test_columns_cli_roundtrip():
     r = run_cli("--spec", write_spec(TMP / "cli10.json", {
         "title": "春晓", "text": "春眠不觉晓，处处闻啼鸟。\n夜来风雨声，花落知多少。",
         "columns": 2}), "--out", "cli10.html")
-    assert r["ok"], r
+    assert r["ok"]
     assert r["columns"] == 2
     doc = (TMP / "cli10.html").read_text(encoding="utf-8")
     assert "cols-2" in doc
@@ -284,3 +284,140 @@ def test_columns_cli_roundtrip():
     assert r2["ok"] and r2["columns"] == 1
     body1 = re.search(r'<body class="([^"]*)"', (TMP / "cli11.html").read_text(encoding="utf-8")).group(1)
     assert "cols-2" not in body1
+
+
+# ---------------------------------------------------------------------------
+# 自适应排版决策（v1.3.0）：一联一行 / 页数目标 / 分页结构
+# ---------------------------------------------------------------------------
+
+LSLV = ("昔人已乘黄鹤去，此地空余黄鹤楼。\n黄鹤一去不复返，白云千载空悠悠。\n"
+        "晴川历历汉阳树，芳草萋萋鹦鹉洲。\n日暮乡关何处是，烟波江上使人愁。")
+
+
+def make_info(spec: dict, name: str):
+    spec = dict(spec)
+    spec.setdefault("_template", spec.get("template", "poem")
+                   if spec.get("template") != "auto" else "poem")
+    ann = pr.annotate(spec["text"], overrides=spec.get("overrides"))
+    out = TMP / name
+    info = rd.render_document(spec, ann, None, None, out)
+    return info, out.read_text(encoding="utf-8")
+
+
+def test_couplet_true_merges_within_source_line():
+    """couplet=true：同一源行的两个小句合并为一行（一联一行），源行边界保留。"""
+    info, doc = make_info({"title": "静夜思", "text": JYS, "couplet": True}, "cp1.html")
+    assert info["layout"]["strategy"] == "couplet"
+    assert doc.count('<div class="v">') == 2            # 2 源行 → 2 展示行
+    first = re.search(r'<div class="v">(.*?)</div>', doc, re.S).group(1)
+    # 一行含 10 个汉字单元 + 2 个句读单元；句读保留在句尾（不落行首）
+    assert len(re.findall(r'<span class="h">[床前明月光疑是地上霜]</span>', first)) == 10
+    assert first.count('class="c p tuck"') == 2
+
+
+def _han_of(fragment_html: str) -> str:
+    return "".join(re.findall(r'<span class="h">([^<]*)</span>', fragment_html))
+
+
+def test_couplet_never_merges_across_source_lines():
+    """两个源行各含两个小句：合并只在源行内，跨行不合并，顺序保持。"""
+    text = "白日依山尽，黄河入海流。\n欲穷千里目，更上一层楼。"
+    _, doc = make_info({"title": "登鹳雀楼", "text": text, "couplet": True}, "cp2.html")
+    assert doc.count('<div class="v">') == 2
+    vs = re.findall(r'<div class="v">(.*?)</div>', doc, re.S)
+    assert _han_of(vs[0]) == "白日依山尽，黄河入海流。"
+    assert _han_of(vs[1]) == "欲穷千里目，更上一层楼。"
+
+
+def test_couplet_leaves_overlong_clause_alone():
+    """超宽度预算的长短句（如"君不见黄河之水天上来"）不强行合并。"""
+    text = "君不见黄河之水天上来，奔流到海不复回。"
+    _, doc = make_info({"title": "将进酒(节)", "text": text, "couplet": True}, "cp3.html")
+    assert doc.count('<div class="v">') == 2            # 两小句各自成行
+
+
+def test_auto_spacious_for_short_poem_compact_for_long():
+    """auto 决策：绝句保持一句一行（字号更大）；长诗自动联行。"""
+    info_short, doc_short = make_info({"title": "静夜思", "text": JYS}, "au1.html")
+    assert info_short["layout"]["strategy"] == "clause"
+    assert doc_short.count('<div class="v">') == 4
+    long_text = "\n".join("春江潮水连海平，海上明月共潮生。" for _ in range(9))
+    info_long, doc_long = make_info({"title": "春江花月夜(节选)", "text": long_text}, "au2.html")
+    assert info_long["layout"]["strategy"] == "couplet"
+    assert doc_long.count('<div class="v">') < 18       # 18 小句合并为 9 行
+    assert info_long["han_size"] >= 17.6                # 未低于默认触底字号
+
+
+def test_target_pages_shrinks_to_fit_one_page():
+    """target_pages=1：字号/边距/行距联合求解，估算 1 页且字号不跌破下限。"""
+    long_text = "\n".join("春江潮水连海平，海上明月共潮生。" for _ in range(9))
+    info, doc = make_info({"title": "春江", "text": long_text, "target_pages": 1}, "tp1.html")
+    assert info["layout"]["pages_est"] == 1
+    assert info["han_size"] >= 12.0                     # 舒适下限
+    assert info["layout"]["margin_mm"][0] <= 18.0       # 自动收窄边距
+    assert "target_met" not in info["layout"]           # 达标
+
+
+def test_target_pages_unreachable_reports():
+    """极端长文 + 1 页目标：如实报告未达标（不无限缩字）。"""
+    long_text = "\n".join("春江潮水连海平，海上明月共潮生。" for _ in range(60))
+    info, _ = make_info({"title": "超长", "text": long_text, "target_pages": 1}, "tp2.html")
+    assert info["layout"]["target_met"] is False
+    assert info["layout"]["pages_est"] > 1
+    assert info["han_size"] >= 10.0                     # 绝对下限
+
+
+def test_target_pages_respects_user_margin():
+    """用户显式设置 margin_mm 时，页数求解不得自动收窄边距。"""
+    long_text = "\n".join("春江潮水连海平，海上明月共潮生。" for _ in range(9))
+    info, _ = make_info({"title": "春江", "text": long_text,
+                         "target_pages": 1, "margin_mm": 18}, "tp3.html")
+    assert info["layout"]["margin_mm"] == [18.0, 18.0]
+
+
+def test_stanza_flow_class_for_oversized_stanza():
+    """单节超过一页（连同标题）时标 .flow：允许行边界自然分页。"""
+    long_text = "\n".join("春江潮水连海平，海上明月共潮生。" for _ in range(15))
+    _, doc = make_info({"title": "长诗", "text": long_text, "couplet": False}, "fl1.html")
+    assert 'class="stanza flow"' in doc
+    short_info, doc_short = make_info({"title": "静夜思", "text": JYS}, "fl2.html")
+    assert 'class="stanza flow"' not in doc_short
+    assert doc_short.count('class="stanza">') == 1      # 短诗整节 keep
+
+
+def test_print_css_protects_header_and_lines():
+    """分页保护：标题块/姓名栏原子+黏后文；展示行原子；flow 节允许分页。"""
+    css = (ROOT / "templates" / "base.css").read_text(encoding="utf-8")
+    assert re.search(r"header\.hd, \.ws-meta, \.grp-head", css)
+    assert "break-after: avoid-page" in css and "break-inside: avoid" in css
+    assert ".stanza.flow" in css and "break-inside: auto" in css
+    assert ".v, .vgrp, .ws-line, .tian-row" in css
+
+
+def test_worksheet_pairs_tian_row_with_verse():
+    """worksheet 诗行：诗句与田字格行包 .vgrp，分页时不分离。"""
+    _, doc = make_info({"title": "山行", "template": "worksheet",
+                        "text": "远上寒山石径斜，白云生处有人家。"}, "ws1.html")
+    grp = re.search(r'<div class="vgrp">.*?</div>\s*</div>', doc, re.S)
+    assert grp and 'class="tian-row"' in grp.group(0) and '<div class="v">' in grp.group(0)
+
+
+def test_new_fields_validation():
+    with pytest.raises(rd.RenderError):
+        make({"text": JYS, "couplet": "maybe"}, "bad4.html")
+    with pytest.raises(rd.RenderError):
+        make({"text": JYS, "target_pages": "two"}, "bad5.html")
+    with pytest.raises(rd.RenderError):
+        make({"text": JYS, "target_pages": 99}, "bad6.html")
+
+
+def test_layout_info_in_cli_summary():
+    r = run_cli("--spec", write_spec(TMP / "cli12.json", {
+        "title": "黄鹤楼", "author": "崔颢", "text": LSLV, "target_pages": 1}), "--out", "cli12.html")
+    assert r["ok"], r
+    assert r["layout"]["strategy"] in ("clause", "couplet")
+    assert r["layout"]["pages_est"] == 1
+    spec = rd.extract_spec_from_html(TMP / "cli12.html")
+    assert spec["target_pages"] == 1                   # 持久进嵌入 spec
+    r2 = run_cli("--from-html", "cli12.html", "--set", "couplet=true", "--out", "cli13.html")
+    assert r2["ok"] and r2["layout"]["strategy"] == "couplet"

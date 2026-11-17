@@ -85,7 +85,12 @@ def resolve_config(spec: dict, template: str) -> dict:
         "annotate_author": bool(spec.get("annotate_author", False)),
         "copy_rows": int(spec.get("copy_rows") or (1 if template == "worksheet" else 0)),
         "footer": spec.get("footer") or "",
+        "couplet": spec.get("couplet", "auto"),
+        "target_pages": spec.get("target_pages", 0),
     }
+    # 记录边距/行距是否用户显式指定：页数目标的自动收缩只动未指定的项
+    cfg["_margin_set"] = spec.get("margin_mm") is not None
+    cfg["_gap_set"] = spec.get("line_gap_scale") is not None
     if cfg["page"] not in PAGE_SIZES:
         raise RenderError(f"不支持的纸张 {cfg['page']}（可选 A4/A5/Letter）")
     try:
@@ -98,6 +103,15 @@ def resolve_config(spec: dict, template: str) -> dict:
         raise RenderError(f"不支持的字体 {cfg['font']}（可选 kai/song/hei）")
     if cfg["mode"] not in MODES:
         raise RenderError(f"不支持的 mode {cfg['mode']}（可选 {'/'.join(MODES)}）")
+    if not isinstance(cfg["couplet"], (bool, str)) or \
+            (isinstance(cfg["couplet"], str) and cfg["couplet"] not in ("auto", "")):
+        raise RenderError("couplet 需为 true/false/auto（是否一联一行合并排版）")
+    try:
+        cfg["target_pages"] = int(cfg["target_pages"] or 0)
+    except (TypeError, ValueError):
+        raise RenderError(f"target_pages 需为正整数（当前 {cfg['target_pages']!r}）")
+    if not (0 <= cfg["target_pages"] <= 50):
+        raise RenderError("target_pages 需为 1-50 之间的页数目标（省略则自动）")
     if not (8.0 <= cfg["han_size"] <= 120.0):
         raise RenderError("han_size 需在 8-120 pt 之间")
     if not (0.25 <= cfg["pinyin_ratio"] <= 0.8):
@@ -247,15 +261,62 @@ def _line_units(toks: list[Token], cell_r: float) -> float:
     return u
 
 
-def _verse_fragments(ann: Annotation) -> tuple[list[list[Token]], int]:
-    """返回 (所有诗句片段, 节数量)。一句一行排版的基本单位。"""
-    frags: list[list[Token]] = []
-    n_stanza = 0
-    for stanza in _stanzas(ann):
-        n_stanza += 1
-        for toks in stanza:
-            frags.extend(_split_verse(toks))
-    return frags, max(n_stanza, 1)
+# ---------------------------------------------------------------------------
+# 版面计算：小句 → 展示行 → 策略求解与选择
+#
+# 层级：源行（原文一行）—小句（句读处拆分）—展示行（实际排成一行的内容）。
+# 两种展示策略：
+#   pair=False（S1 舒展）：一小句一行，绝句/律诗竖版教材风；
+#   pair=True （S2 紧凑）：同一源行内的小句按宽度预算贪心合并（通常一联一行，
+#                          三字句等短句可 3-4 句一行），绝不跨源行、绝不拆小句。
+# 所有高度都是 fs 的线性函数，可直接解字号上限。
+# ---------------------------------------------------------------------------
+
+PAIR_BUDGET_HAN = 8.0   # 合并宽度预算：两个 8 字小句（含句读）以内允许同行
+
+FIT_FLOOR_K = 0.55      # 默认模式字号下限 = max(han_size×该系数, ABS_MIN_FS)
+ABS_MIN_FS = 10.0       # 页数目标模式的绝对字号下限（拼音约 5.5pt，不再更低）
+COMFORT_K = 0.45        # 页数目标模式的期望字号 = max(han_size×该系数, COMFORT_MIN_FS)
+COMFORT_MIN_FS = 12.0
+MARGIN_SCALES = (1.0, 0.85, 0.72)   # 页数目标下的边距自动收窄档位
+MARGIN_MIN_MM = 12.0
+GAP_SCALES = (1.0, 0.85, 0.7)       # 页数目标下的行距自动收紧档位
+GAP_MIN = 0.3
+
+
+def _stanza_fragments(ann: Annotation) -> list[list[list[Token]]]:
+    """返回 [节][源行][小句 tokens]。小句 = _split_verse 在句读处拆出的"一句"。"""
+    return [[_split_verse(toks) for toks in stanza] for stanza in _stanzas(ann)]
+
+
+def _pair_budget(cell_r: float) -> float:
+    """合并宽度预算（units）：约两个七言小句，随拼音长度自适应。"""
+    return 2.0 * (PAIR_BUDGET_HAN * cell_r + 0.56)
+
+
+def _display_lines(line_frags: list[list[Token]], cell_r: float,
+                   pair: bool) -> list[list[Token]]:
+    """源行的小句序列 → 展示行（token 列表）。
+
+    pair=False：一小句一行；pair=True：源行内贪心合并到宽度预算，
+    放不下即换行；单小句超预算独占一行。小句永不拆开、源行间永不合并。
+    """
+    if not pair:
+        return [list(f) for f in line_frags]
+    budget = _pair_budget(cell_r)
+    rows: list[list[Token]] = []
+    cur: list[Token] = []
+    cur_u = 0.0
+    for frag in line_frags:
+        u = _line_units(frag, cell_r)
+        if cur and cur_u + u > budget:
+            rows.append(cur)
+            cur, cur_u = [], 0.0
+        cur.extend(frag)
+        cur_u += u
+    if cur:
+        rows.append(cur)
+    return rows
 
 
 def _pack_columns(n_rows_per_stanza: list[int], cols: int) -> list[list[int]]:
@@ -271,29 +332,34 @@ def _pack_columns(n_rows_per_stanza: list[int], cols: int) -> list[list[int]]:
     return stat
 
 
-def _fit_han_size(cfg: dict, ann: Annotation) -> tuple[float, float, float, bool]:
-    """横向（最长句不超页宽）+ 纵向（总高不超页高）联合适配。
-
-    所有高度都是 fs 的线性函数，可直接解出 fs 上限。
-    返回 (最终汉字字号 pt, cell_r, 最长句 units, 是否放行句中折行)。
-    """
+def _page_geometry(cfg: dict, margin_scale: float = 1.0) -> tuple[float, float]:
+    """返回 (内容宽 pt, 内容高 pt)；margin_scale 只作用于未显式指定的边距档位。"""
     pw, ph = PAGE_SIZES[cfg["page"]]
     if cfg["landscape"]:
-        pw, ph = PAGE_SIZES[cfg["page"]][::-1]
+        pw, ph = ph, pw
     mv, mh = cfg["margin_mm"]
-    content_w = (pw - 2 * mh) / 25.4 * 72.0
-    content_h = (ph - 2 * mv) / 25.4 * 72.0
+    mv = max(mv * margin_scale, MARGIN_MIN_MM) if margin_scale < 1.0 else mv
+    mh = max(mh * margin_scale, MARGIN_MIN_MM) if margin_scale < 1.0 else mh
+    return (pw - 2 * mh) / 25.4 * 72.0, (ph - 2 * mv) / 25.4 * 72.0
 
-    py_len = _max_pinyin_len(ann)
-    cell_r = max(1.22, py_len * cfg["pinyin_ratio"] * 0.52 + 0.14)
-    if cfg["mode"] == "hanzi":
-        cell_r = 1.12
 
-    frags, _ = _verse_fragments(ann)
-    max_units = max((_line_units(f, cell_r) for f in frags), default=cell_r)
-    # 双栏：最长句须放进半栏宽，栏间距随字号缩放 → 一次解出字号上限
+def _layout_metrics(cfg: dict, ann: Annotation, cell_r: float, pair: bool,
+                    content_w: float, content_h: float) -> dict:
+    """一个策略 + 一组页面几何下的求解。
+
+    返回 {rows_per_stanza, dl_stanzas, max_units, header_k, body_k,
+          fs_w, fs_v, fs, total_h}；高度类均为 fs 的倍数（_k 后缀）。
+    """
     cols = cfg["columns"]
-    fs_w = content_w / (cols * max_units + COLUMN_GAP_K * (cols - 1))
+    dl_stanzas = [
+        [row for lf in st for row in _display_lines(lf, cell_r, pair)]
+        for st in _stanza_fragments(ann)
+    ]
+    rows_per_stanza = [len(dl) for dl in dl_stanzas] or [1]
+    max_units = max(
+        (u for dl in dl_stanzas for u in [_line_units(r, cell_r) for r in dl]),
+        default=cell_r)
+    fs_w = content_w / max(cols * max_units + COLUMN_GAP_K * (cols - 1), 0.5)
 
     row_k = cfg["pinyin_ratio"] * 1.7 + 1.18          # rowh / fs
     header_k = 0.0
@@ -305,23 +371,122 @@ def _fit_han_size(cfg: dict, ann: Annotation) -> tuple[float, float, float, bool
         header_k += 0.62 + 0.8                        # 姓名/日期栏
     tian_k = 2.0 * cfg["copy_rows"] if cfg["copy_rows"] else 0.0
     # 纵向：按节贪心分栏（节不跨栏），取最高一栏的高度
-    rows_per_stanza = [
-        sum(len(_split_verse(toks)) for toks in stanza) for stanza in _stanzas(ann)
-    ] or [len(frags)]
     body_k = max(
         rows * (row_k + cfg["vgap"]) - cfg["vgap"] + max(st - 1, 0) * 1.6 + rows * tian_k
         for rows, st in _pack_columns(rows_per_stanza, cols)
     )
-    fs_h = content_h / max(header_k + body_k, 1.0)
+    target = cfg.get("target_pages", 0)
+    if target >= 1:
+        # 每个额外分页断点最多浪费一行高度（保守计入）
+        slack_k = (target - 1) * (row_k + cfg["vgap"])
+        fs_v = target * content_h / max(header_k + body_k + slack_k, 1.0)
+    else:
+        fs_v = content_h / max(header_k + body_k, 1.0)
+    fs = min(cfg["han_size"], fs_w, fs_v)
+    total_h = (header_k + body_k) * fs                # 无分页损耗的估算总高
+    return {"rows_per_stanza": rows_per_stanza, "dl_stanzas": dl_stanzas,
+            "max_units": max_units, "header_k": header_k, "body_k": body_k,
+            "fs_w": fs_w, "fs_v": fs_v, "fs": fs, "total_h": total_h,
+            "content_h": content_h}
 
-    fs = min(cfg["han_size"], fs_w, fs_h)
-    wrap = False
-    floor = max(cfg["han_size"] * 0.55, 10.0)
-    if fs < floor:
-        fs = floor
-        if fs_w < floor:
-            wrap = True
-    return fs, cell_r, max_units, wrap
+
+def _cell_ratio(cfg: dict, ann: Annotation) -> float:
+    if cfg["mode"] == "hanzi":
+        return 1.12
+    return max(1.22, _max_pinyin_len(ann) * cfg["pinyin_ratio"] * 0.52 + 0.14)
+
+
+def _choose_verse_layout(cfg: dict, ann: Annotation) -> dict:
+    """诗行排版决策：策略（一小句一行 / 源行内合并）+ 字号 + 页数目标求解。
+
+    couplet=false/true 直接锁定策略；auto 时：
+      - 有 target_pages：在（策略×边距档×行距档）组合里选「达到页数目标且
+        字号 ≥ 舒适下限」的最大字号方案；全部达不到 → 放宽到绝对下限 10pt
+        并取页数最少者（如实 warning，不无限缩字）。
+      - 无 target_pages：单页放得下且不触底的策略优先（S1 舒展优先）；
+        都触底 → 取纵向字号上限更大（欠缩更少）者，长诗自然分页。
+    选定后把边距/行距调整写回 cfg（_css_vars/_page_css 直接使用）。
+    """
+    cell_r = _cell_ratio(cfg, ann)
+    target = cfg.get("target_pages", 0)
+    couplet = cfg.get("couplet", "auto")
+    pairs = [bool(couplet)] if isinstance(couplet, bool) else [False, True]
+
+    def solve(pair: bool, ms: float = 1.0, gs: float = 1.0) -> dict:
+        trial = dict(cfg)
+        if ms < 1.0 or gs < 1.0:
+            trial["vgap"] = max(cfg["vgap"] * gs, GAP_MIN)
+            trial["lgap"] = max(cfg["lgap"] * gs, GAP_MIN)
+        content_w, content_h = _page_geometry(trial, ms)
+        return _layout_metrics(trial, ann, cell_r, pair, content_w, content_h)
+
+    if target >= 1:
+        comfort = max(cfg["han_size"] * COMFORT_K, COMFORT_MIN_FS)
+        m_scales = MARGIN_SCALES if not cfg.get("_margin_set") else (1.0,)
+        g_scales = GAP_SCALES if not cfg.get("_gap_set") else (1.0,)
+        # tier 0 = 字号≥舒适下限；tier 1 = 只到绝对下限。先 tier 后字号，
+        # 再少收缩边距/行距，最后偏舒展策略（pair=False）。
+        cands = []
+        for pair in pairs:
+            for ms in m_scales:
+                for gs in g_scales:
+                    m = solve(pair, ms, gs)
+                    if m["fs"] < ABS_MIN_FS or \
+                            m["total_h"] > target * m["content_h"] + 0.5:
+                        continue
+                    tier = 0 if m["fs"] >= comfort else 1
+                    cands.append((tier, -m["fs"], ms, gs, pair is False,
+                                  (ms, gs, pair), m))
+        if cands:
+            best = min(cands, key=lambda x: x[:5])
+            fs, (ms, gs, pair), m = best[1] * -1, best[5], best[6]
+        else:
+            # 绝对下限也放不下：字号钳到绝对下限，取页数最少者（如实报告）
+            pool = []
+            for pair in pairs:
+                for ms in m_scales:
+                    for gs in g_scales:
+                        m = solve(pair, ms, gs)
+                        fs_use = max(m["fs"], ABS_MIN_FS)
+                        pages = max(1, math.ceil(
+                            (m["header_k"] + m["body_k"]) * fs_use / m["content_h"] - 1e-6))
+                        pool.append((pages, -fs_use, (ms, gs, pair), m, fs_use))
+            b = min(pool, key=lambda x: (x[0], x[1]))
+            fs, (ms, gs, pair), m = b[4], b[2], b[3]
+        plan = {"pair": pair, "fs": fs, "cell_r": cell_r, "units": m["max_units"],
+                "metrics": m, "target": target,
+                "margin_scale": ms, "gap_scale": gs}
+    else:
+        floor = max(cfg["han_size"] * FIT_FLOOR_K, ABS_MIN_FS)
+        cands = []
+        for pair in pairs:
+            m = solve(pair)
+            fs = m["fs"] if m["fs"] >= floor else floor   # 触底钳到下限，超页自然分页
+            cands.append({"pair": pair, "fs": fs, "m": m})
+        # 单页放得下且不触底 → 字号大者优先（平局取 S1 舒展）；都触底 → 纵向上限大者
+        ok = [c for c in cands if c["fs"] == c["m"]["fs"]]
+        if ok:
+            best = max(ok, key=lambda c: (c["fs"], c["pair"] is False))
+        else:
+            best = max(cands, key=lambda c: (c["m"]["fs_v"], c["pair"] is False))
+        pair, fs, m = best["pair"], best["fs"], best["m"]
+        plan = {"pair": pair, "fs": fs, "cell_r": cell_r, "units": m["max_units"],
+                "metrics": m, "target": 0, "margin_scale": 1.0, "gap_scale": 1.0}
+
+    wrap = fs > m["fs_w"] + 0.01                   # 字号超宽度上限 → 放行句读处折行
+    plan["wrap"] = wrap
+    total_k = m["header_k"] + m["body_k"]          # 高度总系数（fs 的倍数）
+    plan["pages_est"] = max(1, math.ceil(total_k * fs / m["content_h"] - 1e-6))
+    plan["rows_per_stanza"] = m["rows_per_stanza"]
+    # 写回边距/行距调整（_css_vars / _page_css 使用）
+    if plan["margin_scale"] < 1.0:
+        mv, mh = cfg["margin_mm"]
+        cfg["margin_mm"] = (max(mv * plan["margin_scale"], MARGIN_MIN_MM),
+                            max(mh * plan["margin_scale"], MARGIN_MIN_MM))
+    if plan["gap_scale"] < 1.0:
+        cfg["vgap"] = max(cfg["vgap"] * plan["gap_scale"], GAP_MIN)
+        cfg["lgap"] = max(cfg["lgap"] * plan["gap_scale"], GAP_MIN)
+    return plan
 
 
 # ---------------------------------------------------------------------------
@@ -411,19 +576,34 @@ def _split_verse(toks: list[Token]) -> list[list[Token]]:
     return [f for f in frags if any(x.is_han for x in f)] or [toks]
 
 
-def build_poem_body(ann: Annotation, cfg: dict, *, fs: float,
-                    tian: bool = False, wrap: bool = False) -> str:
+def build_poem_body(ann: Annotation, cfg: dict, plan: dict, *, tian: bool = False) -> str:
+    """诗行正文：按 plan 的展示行输出 .v 行。
+
+    每节按几何判定：节高 ≤ 页内容高 → 默认 keep（break-inside:avoid，节不跨页）；
+    超高节 → 追加 flow 类（允许在展示行边界自然分页，.v 自身原子、一联不拆）。
+    田字格行与所属诗句包 .vgrp（书写行不与诗句分离）。
+    """
     out = []
-    for stanza in _stanzas(ann):
-        lines_html = []
-        for toks in stanza:
-            for frag in _split_verse(toks):
-                v = line_cells(frag, cfg["mode"], poem=True, allow_break=wrap)
-                lines_html.append(f'<div class="v">{v}</div>')
-                if tian:
-                    n = sum(1 for t in frag if t.is_han)
-                    lines_html.append(_tian_row(n, wrap=n > 18))
-        out.append(f'<div class="stanza">{"".join(lines_html)}</div>')
+    fs = plan["fs"]
+    row_k = cfg["pinyin_ratio"] * 1.7 + 1.18
+    tian_k = 2.0 * cfg["copy_rows"] if cfg["copy_rows"] else 0.0
+    content_h = plan["metrics"]["content_h"]
+    header_k = plan["metrics"]["header_k"]
+    for i, dl in enumerate(plan["metrics"]["dl_stanzas"]):
+        items: list[str] = []
+        for row in dl:
+            v = line_cells(row, cfg["mode"], poem=True, allow_break=plan["wrap"])
+            if tian:
+                n = sum(1 for t in row if t.is_han)
+                grp = f'<div class="v">{v}</div>' + _tian_row(n, wrap=n > 18)
+                items.append(f'<div class="vgrp">{grp}</div>')
+            else:
+                items.append(f'<div class="v">{v}</div>')
+        stanza_k = len(dl) * (row_k + cfg["vgap"] + tian_k) - cfg["vgap"]
+        # 第一节 keep 还须连同标题块放进首页：否则整节后移会让标题孤立成页
+        budget_k = stanza_k + (header_k if i == 0 else 0.0)
+        cls = "stanza" if budget_k * fs <= content_h + 0.5 else "stanza flow"
+        out.append(f'<div class="{cls}">{"".join(items)}</div>')
     return "".join(out)
 
 
@@ -484,33 +664,36 @@ def render_document(spec: dict, ann: Annotation, ann_title, ann_author,
         raise RenderError(f"未知模板 {template}")
     cfg = resolve_config(spec, template)
 
-    pw, _ph = PAGE_SIZES[cfg["page"]]
-    if cfg["landscape"]:
-        pw = PAGE_SIZES[cfg["page"]][1]
-    _mv, mh = cfg["margin_mm"]
-    content_pt = (pw - 2 * mh) / 25.4 * 72.0
-
     verse_like = _is_verse_like(ann)
     cfg["_has_title"] = bool(spec.get("title"))
     cfg["_has_author"] = bool(spec.get("author") or spec.get("dynasty"))
     if template == "reading" or (template == "worksheet" and not verse_like):
+        plan = None
         fs, cell_r, units = cfg["han_size"], max(
             1.22, _max_pinyin_len(ann) * cfg["pinyin_ratio"] * 0.52 + 0.14), 12.0
         wrap = False
     else:
-        fs, cell_r, units, wrap = _fit_han_size(cfg, ann)
+        # 排版决策先行：可能收窄边距/行距，后续标题宽度与 CSS 变量都取调整后值
+        plan = _choose_verse_layout(cfg, ann)
+        fs, cell_r, units, wrap = plan["fs"], plan["cell_r"], plan["units"], plan["wrap"]
+
+    pw2 = PAGE_SIZES[cfg["page"]][0]
+    if cfg["landscape"]:
+        pw2 = PAGE_SIZES[cfg["page"]][1]
+    _mv2, mh2 = cfg["margin_mm"]
+    content_pt = (pw2 - 2 * mh2) / 25.4 * 72.0
 
     header, t_scale = build_header(
         spec.get("title") or "", ann_title,
         spec.get("author") or "", spec.get("dynasty") or "", ann_author,
         cfg, fs, content_pt)
 
-    if template == "poem":
-        body = build_poem_body(ann, cfg, fs=fs, wrap=wrap)
-    elif template == "reading":
+    if plan is None:
         body = build_reading_body(ann, cfg)
+    elif template == "poem":
+        body = build_poem_body(ann, cfg, plan)
     elif verse_like:
-        body = build_poem_body(ann, cfg, fs=fs, tian=cfg["copy_rows"] > 0, wrap=wrap)
+        body = build_poem_body(ann, cfg, plan, tian=cfg["copy_rows"] > 0)
     else:
         body = build_reading_body(ann, cfg)
 
@@ -525,6 +708,7 @@ def render_document(spec: dict, ann: Annotation, ann_title, ann_author,
     body_class = (
         f"mode-{cfg['mode']} tpl-{template}"
         f"{' auto-clamp' if clamp else ''}{' wrap-ok' if wrap else ''}"
+        f"{' pair' if plan is not None and plan['pair'] else ''}"
         f"{' cols-2' if cfg['columns'] == 2 else ''}")
 
     doc = (tpl
@@ -540,6 +724,15 @@ def render_document(spec: dict, ann: Annotation, ann_title, ann_author,
                spec, ensure_ascii=False, separators=(",", ":")).replace("</", "<\\/")))
 
     out_path.write_text(doc, encoding="utf-8", newline="\n")
+    layout = {
+        "strategy": ("flow" if plan is None else ("couplet" if plan["pair"] else "clause")),
+        "pages_est": (plan["pages_est"] if plan is not None else None),
+        "target_pages": cfg["target_pages"] or None,
+        "margin_mm": [round(v, 1) for v in cfg["margin_mm"]],
+        "line_gap_scale": round(cfg["vgap"], 2),
+    }
+    if plan is not None and cfg["target_pages"] and plan["pages_est"] > cfg["target_pages"]:
+        layout["target_met"] = False
     return {
         "template": template,
         "mode": cfg["mode"],
@@ -550,6 +743,7 @@ def render_document(spec: dict, ann: Annotation, ann_title, ann_author,
         "cell_ratio": round(cell_r, 3),
         "verse_like": verse_like,
         "clause_wrap": wrap,
+        "layout": layout,
         "output": str(out_path),
     }
 
