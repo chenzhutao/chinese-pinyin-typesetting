@@ -20,6 +20,8 @@ CASES = [
     ("one_page_target", "长诗一页", "春江潮水连海平，海上明月共潮生。\n" * 9, {"target_pages": 1}),
     ("landscape", "横向古诗", "春江潮水连海平，海上明月共潮生。\n" * 9, {"landscape": True}),
     ("two_columns", "双栏古诗", "春江潮水连海平，海上明月共潮生。\n" * 9, {"columns": 2}),
+    ("two_columns_couplet", "双栏联行", "春江潮水连海平，海上明月共潮生。\\n" * 9, {"columns": 2, "couplet": True}),
+    ("two_columns_clause", "双栏分句", "春江潮水连海平，海上明月共潮生。\\n" * 9, {"columns": 2, "couplet": False}),
     ("unreachable_target", "长文页数下限", "春江潮水连海平，海上明月共潮生。\n" * 60, {"target_pages": 1}),
 ]
 
@@ -47,7 +49,7 @@ def main():
             estimated = result["layout"]["pages_est"]
             page.goto(html_path.resolve().as_uri())
             page.emulate_media(media="print")
-            if name == "two_columns":
+            if name.startswith("two_columns"):
                 details = page.evaluate("""() => {
                     const main = document.querySelector('main');
                     const sheet = document.querySelector('.sheet');
@@ -70,9 +72,9 @@ def main():
                         }))
                     };
                 }""")
-                print("two_columns DOM diagnostics: " +
+                print(f"{name} DOM diagnostics: " +
                       json.dumps(details, ensure_ascii=False), flush=True)
-                print("two_columns layout diagnostics: " +
+                print(f"{name} layout diagnostics: " +
                       json.dumps(result["layout"], ensure_ascii=False), flush=True)
             pdf = page.pdf(prefer_css_page_size=True, print_background=True)
             pdf_path = work / (name + ".pdf")
