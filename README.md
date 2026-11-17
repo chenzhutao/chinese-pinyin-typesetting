@@ -16,10 +16,6 @@
 
 ## 在线查看排版效果
 
-<img src="assets/previews/poem.png" alt="古诗注音效果" width="46%"> <img src="assets/previews/reading.png" alt="课文阅读效果" width="46%">
-
-<img src="assets/previews/columns.png" alt="双栏排版效果" width="46%"> <img src="assets/previews/worksheet.png" alt="田字格默写效果" width="46%">
-
 
 **点击下面的「在线预览」，可以直接看到渲染后的页面，不需要下载仓库。** 预览通过第三方 HTML Preview 服务打开 GitHub 中的 HTML 文件；如果预览服务不可用，可以下载项目后用浏览器打开原文件。
 
