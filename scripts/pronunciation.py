@@ -517,7 +517,11 @@ def apply_overrides(a: Annotation, overrides) -> list[dict]:
 
 def _build_review(a: Annotation, rule_review: list[dict]) -> list[dict]:
     out: dict[int, dict] = {}
+    overridden_indices = {t.index for t in a.han_tokens() if t.overridden}
     for r in rule_review:
+        # 人工纠音是最终裁定；旧的自动规则提示不得继续要求用户复核。
+        if r["index"] in overridden_indices:
+            continue
         out[r["index"]] = r
     for ln, hn, t, _lt in _iter_line_tokens(a):
         if t.overridden or t.text not in COMMON_POLYPHONES:
