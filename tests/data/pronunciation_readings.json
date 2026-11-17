@@ -1,0 +1,63 @@
+{
+  "schema_version": 1,
+  "description": "已核实的教材、古诗与日常语境读音回归样本；仅用于测试，不直接覆盖注音引擎词典。",
+  "cases": [
+    {
+      "id": "poem-fude-de",
+      "category": "古诗",
+      "text": "赋得古原草送别",
+      "target": "得",
+      "occurrence": 1,
+      "pinyin": "dé",
+      "note": "赋得中的得读第二声"
+    },
+    {
+      "id": "poem-xizi-zi",
+      "category": "古诗",
+      "text": "欲把西湖比西子。",
+      "target": "子",
+      "occurrence": 1,
+      "pinyin": "zǐ"
+    },
+    {
+      "id": "poem-youzi-zi",
+      "category": "古诗",
+      "text": "慈母手中线，游子身上衣。",
+      "target": "子",
+      "occurrence": 1,
+      "pinyin": "zǐ"
+    },
+    {
+      "id": "poem-jian-xian",
+      "category": "古诗",
+      "text": "风吹草低见牛羊",
+      "target": "见",
+      "occurrence": 1,
+      "pinyin": "xiàn"
+    },
+    {
+      "id": "poem-huan",
+      "category": "古诗",
+      "text": "千里江陵一日还",
+      "target": "还",
+      "occurrence": 1,
+      "pinyin": "huán"
+    },
+    {
+      "id": "poem-xie",
+      "category": "古诗",
+      "text": "远上寒山石径斜",
+      "target": "斜",
+      "occurrence": 1,
+      "pinyin": "xié"
+    },
+    {
+      "id": "grammar-de",
+      "category": "日常语境",
+      "text": "他跑得很快。",
+      "target": "得",
+      "occurrence": 1,
+      "pinyin": "de"
+    }
+  ]
+}
