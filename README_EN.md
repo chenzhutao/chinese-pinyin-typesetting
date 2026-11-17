@@ -1,95 +1,87 @@
-# chinese-pinyin-typesetting · Simplified Chinese Hanyu Pinyin Typesetting Skill
+# Chinese Pinyin Typesetting
 
-[简体中文](README.md) | English
+**Turn Chinese poems, reading passages, and short texts into beautifully formatted pinyin-annotated documents for reading, recitation, and printing.**
 
-**AI Agent Skill · v1.3.2 · For agents that support Skill loading and local script execution · Zero third-party dependencies · MIT**
+[简体中文](README.md) · [Live examples](#preview-the-results) · [Agent instructions](SKILL.md)
 
-An AI Agent Skill that turns classical poems, nursery rhymes, textbook passages, and short essays into **textbook-quality annotated HTML**—each character carries its tone-marked Hanyu Pinyin directly above it (ā á ǎ à, ü, neutral tone), verse lines are centered on a shared baseline, A4 printing never truncates, and pages reflow on phones without horizontal scrolling. The romanization system is Hanyu Pinyin (汉语拼音), the standard for Simplified Chinese in mainland China—**not** Zhuyin / Bopomofo (ㄅㄆㄇ), the phonetic script used in Taiwan, which is not supported.
+This tool places tone-marked Hanyu Pinyin above individual Chinese characters. It supports classical poetry, reading passages, handwriting worksheets, A4 printing, and automatic layout adjustments to fit a desired page count.
 
-It is **cross-agent by design**: the [SKILL.md](SKILL.md) in the directory is the usage contract agents read, a CLI is the single execution entry point, and nothing depends on a specific agent's SDK, API, or external services—any agent that supports Skill loading and can run Python ≥3.10 scripts locally (e.g. Claude Code, ZCode) can use it; humans can run it in a terminal too.
+## What can it do?
 
-## Key Features
+- **Annotate Chinese text:** Add tone-marked pinyin above each character, with context-aware readings for common polyphonic characters and a built-in set of textbook readings.
+- **Format poetry naturally:** Use one clause per line for short poems or combine two clauses for longer poems. Line grouping adapts to page orientation, column width, and font size rather than relying on fixed character counts.
+- **Create learning materials:** Produce annotated, hanzi-only recitation, pinyin-based dictation, and tone-marking practice versions.
+- **Adapt to screen and print:** Support A4, portrait or landscape orientation, one or two columns, and a target page count with automatic spacing and font-size adjustments.
+- **Correct and regenerate:** Override a pronunciation when necessary, or change the layout of an existing output without starting over.
 
-- **Per-character annotation**: pinyin sits directly above each character, disambiguated by word context, with full tone marks
-- **Built-in textbook readings**: approved readings from China's unified-edition textbooks applied automatically (e.g. 石径斜 *xié*, 一日还 *huán*); 一 / 不 tone sandhi follows textbook convention and can be disabled
-- **Review list + optional corrections**: questionable readings go into a `review` list for the agent to relay to the user; the optional `overrides` mechanism supports four locator styles—index, line + character, phrase, single character
-- **Adaptive verse layout**: line grouping is geometry-driven by column width and font size (no fixed character counts)—quatrains in portrait get one clause per line, long poems/landscape/two columns auto-merge couplets and split back into whole clauses when narrow; line breaks happen only at clause boundaries, so a trailing "未磨。" orphan can never occur; `couplet` forces it on/off
-- **Page-count target**: `target_pages` jointly tunes line merging, font size, line gaps, and margins to fit the target (hard font floor—no endless shrinking; honest report when unreachable)
-- **Sound pagination**: the title block is atomic and glued to what follows—a title can never sit alone on a page; long poems break at couplet boundaries with a widow guard on the last page; tianzige writing rows never separate from their verse line
-- **3 templates × 4 modes**: poem / reading / worksheet × annotated / hanzi-only / pinyin-only / tone-marking practice
-- **Optional two-column body**: `columns=2` sets the body in two columns (full-width header & footer, stanzas never split across columns, single-column fallback on narrow screens, stays two-column in print) — available for every template
-- **Iterative regeneration**: `--from-html` recovers all settings and correction history from an existing HTML file; change one parameter, get a new version
-- **Self-contained HTML output**: single file, inline CSS, adapts to phones, Ctrl+P prints to A4, optional `--pdf` export via a local Chrome/Edge
+## Preview the results
 
-## Examples
+**Use the Live preview links to see rendered HTML in your browser without downloading the repository.** These links use a third-party HTML Preview service. If the service is unavailable, download the project and open the original HTML locally.
 
-The `examples/` directory ships 11 genuine outputs (specs embedded, reproducible). GitHub shows HTML as source—clone or download the repo and open them in a browser to see the actual typography:
+| Example | Live preview | Source HTML |
+| --- | --- | --- |
+| Annotated poem: 静夜思 | [Live preview](https://htmlpreview.github.io/?https://github.com/chenzhutao/chinese-pinyin-typesetting/blob/main/examples/1_jingyesi_poem.html) | [HTML](examples/1_jingyesi_poem.html) |
+| Annotated poem: 春晓 | [Live preview](https://htmlpreview.github.io/?https://github.com/chenzhutao/chinese-pinyin-typesetting/blob/main/examples/2_chunxiao_poem.html) | [HTML](examples/2_chunxiao_poem.html) |
+| Reading passage | [Live preview](https://htmlpreview.github.io/?https://github.com/chenzhutao/chinese-pinyin-typesetting/blob/main/examples/6_duanwen_reading.html) | [HTML](examples/6_duanwen_reading.html) |
+| Two-column reading | [Live preview](https://htmlpreview.github.io/?https://github.com/chenzhutao/chinese-pinyin-typesetting/blob/main/examples/11_duanwen_twocol.html) | [HTML](examples/11_duanwen_twocol.html) |
+| Pinyin dictation | [Live preview](https://htmlpreview.github.io/?https://github.com/chenzhutao/chinese-pinyin-typesetting/blob/main/examples/5_shanxing_worksheet.html) | [HTML](examples/5_shanxing_worksheet.html) |
+| Handwriting practice | [Live preview](https://htmlpreview.github.io/?https://github.com/chenzhutao/chinese-pinyin-typesetting/blob/main/examples/9_jingyesi_wshanzi.html) | [HTML](examples/9_jingyesi_wshanzi.html) |
+| Tone-marking exercise | [Live preview](https://htmlpreview.github.io/?https://github.com/chenzhutao/chinese-pinyin-typesetting/blob/main/examples/8_chunxiao_blankpy.html) | [HTML](examples/8_chunxiao_blankpy.html) |
 
-| Example | Content | Template / mode |
-|---|---|---|
-| [1_jingyesi_poem.html](examples/1_jingyesi_poem.html) | 《静夜思》 classical poem | poem / both |
-| [2_chunxiao_poem.html](examples/2_chunxiao_poem.html) | 《春晓》 classical poem | poem / both |
-| [3_wanglushan_poem.html](examples/3_wanglushan_poem.html) | 《望庐山瀑布》 classical poem | poem / both |
-| [4_huixiang_cuui.html](examples/4_huixiang_cuui.html) | 《回乡偶书》, 衰 corrected to the traditional reading *cuī* | poem / both + override |
-| [5_shanxing_worksheet.html](examples/5_shanxing_worksheet.html) | 《山行》 write-characters-from-pinyin | worksheet / pinyin |
-| [6_duanwen_reading.html](examples/6_duanwen_reading.html) | 《外婆的小菜园》 original short essay | reading / both |
-| [7_huixiang_hanzi.html](examples/7_huixiang_hanzi.html) | 《回乡偶书》 pinyin-free recitation copy | poem / hanzi |
-| [8_chunxiao_blankpy.html](examples/8_chunxiao_blankpy.html) | 《春晓》 tone-marking practice | worksheet / blank_pinyin |
-| [9_jingyesi_wshanzi.html](examples/9_jingyesi_wshanzi.html) | 《静夜思》 tianzige handwriting practice | worksheet / hanzi |
-| [10_woiuiqing_reading.html](examples/10_woiuiqing_reading.html) | 《我对爱情的理解》 modern short essay | reading / both |
-| [11_duanwen_twocol.html](examples/11_duanwen_twocol.html) | 《外婆的小菜园》 in two columns | reading / both + columns=2 |
+More examples are available in the [examples directory](examples/).
 
-## Installation
+## Getting started
 
-Python ≥3.10 is all you need—the pinyin engine is vendored under `scripts/_vendor/` (no pip install, no network access at runtime):
+This project is an AI Agent Skill, but it also works as a standalone command-line tool.
 
-```bash
-git clone https://github.com/chenzhutao/chinese-pinyin-typesetting.git
-# Or download and unzip the Release ZIP:
-# https://github.com/chenzhutao/chinese-pinyin-typesetting/releases/tag/v1.2.0
-```
+### 1. Download
 
-- **For an AI Agent**: place the whole directory into the agent's skills directory (path per your agent's docs, e.g. `~/.claude/skills/`)
-- **As a CLI tool**: keep it anywhere and run the commands below
-- `--pdf` requires a locally installed Chrome / Chromium / Edge; on Windows, use `python -X utf8 ...` if the console raises encoding errors
+[Download the project ZIP](https://github.com/chenzhutao/chinese-pinyin-typesetting/archive/refs/heads/main.zip) and extract it. Python 3.10 or newer is required. The pinyin engine is bundled, so no additional Python packages are needed.
 
-## Quick Start
+### 2. Use it with an AI Agent
+
+Place the entire project folder in your agent's Skills directory, and have the agent follow [SKILL.md](SKILL.md).
+
+Example requests:
+
+> Add pinyin to 静夜思 and make an A4 recitation sheet for a primary-school student.
+
+> Format this long poem on a landscape A4 page, aiming for one page if possible.
+
+> Make a hanzi-only recitation version of the document you just created.
+
+The agent prepares the text, runs the script, and delivers the resulting file. Your agent must support loading Skills and executing local Python.
+
+### 3. Run it yourself
+
+From the project directory:
 
 ```bash
 python scripts/generate.py --text "《静夜思》
 李白
 床前明月光，疑是地上霜。
 举头望明月，低头思故乡。" --out 静夜思.html
-
-# Produce another variant (e.g. a hanzi-only recitation copy)
-python scripts/generate.py --from-html 静夜思.html --set mode=hanzi --out 静夜思（背诵版）.html
 ```
 
-stdout is a JSON summary (including the `review` list of polyphonic flags); exit codes are 0/2. Content can also come from `--text-file` or `--spec`. **Full CLI arguments, the spec field reference, and override syntax: [SKILL.md](SKILL.md) and [references/spec.md](references/spec.md).**
+Open the generated HTML in a browser. To create a hanzi-only copy from the same file:
 
-## Templates & Display Modes
+```bash
+python scripts/generate.py --from-html 静夜思.html --set mode=hanzi --out recitation.html
+```
 
-| Template | Use |
-|---|---|
-| `poem` | Classical verse: centered verse layout with separate title/dynasty/author; quatrains get one clause per line, regulated/long poems couplet-per-line automatically, font size adapts to line length |
-| `reading` | Textbook passage: paragraphs preserved, automatic wrapping, mixed Chinese/Latin/digit text |
-| `worksheet` | Dictation practice: name/date/score header + tianzige (田字格) writing grids (verse line and its grids stay paired across page breaks) |
+You can print the HTML or save it as a PDF using your browser. Automatic PDF export is also available when Chrome, Chromium, or Edge is installed locally.
 
-Display modes (available for every template): `both` annotated (default) · `hanzi` characters only (recitation) · `pinyin` pinyin only (write characters from pinyin) · `blank_pinyin` tone-marking practice. Layout parameters—font size, paper, orientation, two columns, page-count target (`target_pages`), couplet merging (`couplet`)—are covered in [references/spec.md](references/spec.md).
+## About pronunciation accuracy
 
-## Pronunciation Corrections
+The tool uses word context and built-in textbook readings for common polyphonic characters, but automatic annotation is not guaranteed to be perfect. Check uncommon characters, names, and disputed historical readings; corrections can be applied before regenerating the document.
 
-Automatic annotation is not guaranteed perfect: questionable readings go into `review`, textbook-vs-traditional conflicts into `notes` (e.g. "衰: textbook *shuāi*, traditional *cuī*"), relayed to the user in one sentence by the agent. The default output is usable as-is; `overrides` (an optional mechanism—syntax for the four locator styles in [references/spec.md](references/spec.md)) comes into play only when the user wants a reading changed, and correction history survives `--from-html` iteration. Rare characters, uncommon names, and historical-pronunciation disputes warrant a human check.
+It uses **Hanyu Pinyin** (such as ā, á, ǎ, à), not Zhuyin/Bopomofo (ㄅㄆㄇ).
 
-## Version
+## Documentation
 
-Current: **v1.3.2** (2026-11-16) · Project's own code and content: MIT ([LICENSE](LICENSE)); the vendored pypinyin and its pinyin data are governed by their own licenses (see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)) · Downloads: [Release v1.2.0](https://github.com/chenzhutao/chinese-pinyin-typesetting/releases/tag/v1.2.0) (v1.3.0 package pending)
+- [SKILL.md](SKILL.md): Instructions for AI Agents
+- [Full configuration reference](references/spec.md): Paper, font size, columns, page targets, pronunciation overrides, and CLI options
+- [Maintenance and testing](references/maintenance.md): Developer reference (Chinese)
+- [Third-party notices](THIRD_PARTY_NOTICES.md): Licensing details for the bundled pinyin engine and data
 
-- v1.3.2: textbook dictionary entries (游子/西子/赋得) that override heuristic rules; dynasty 〔唐〕 no longer lost with annotate_author (shared ruby baseline); expect guard for line+char overrides; layout.overflow diagnostics; pdf_check now verifies page size/orientation and ordered content completeness
-- v1.3.1: semantic verse breaking—line breaks only at clause boundaries (after punctuation); geometry-driven line grouping that splits couplets into whole clauses in narrow columns; font size solved by bisection (page estimates match reality); outlier long title lines no longer shrink the whole book; last-page orphan lines structurally eliminated
-- v1.3.0: adaptive verse layout (one-clause or couplet-per-line, forceable via `couplet`); page-count target `target_pages` (jointly tunes font/line-gap/margins with a hard font floor); pagination rework (title never alone on a page, writing grids paired with verse lines)
-- v1.2.0: optional two-column body layout (`columns=2`, available for every template, auto single-column fallback on narrow screens)
-- v1.1.4: default pinyin size raised to 0.55 of the character size
-- v1.1.3: fixed a crash with the phrase + all override locator; first public release
-
-The repository ships 68 unit tests, a 33-check browser audit, and a PDF page-level audit script (`tests/`). The maintenance guide (invariants, coupling matrix, regression protocol) lives in [references/maintenance.md](references/maintenance.md) (Chinese).
+The original project is licensed under [MIT](LICENSE); bundled third-party components retain their respective licenses.
