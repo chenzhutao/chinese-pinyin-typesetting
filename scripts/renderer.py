@@ -69,7 +69,7 @@ def resolve_config(spec: dict, template: str) -> dict:
     cfg = {
         "template": template,
         "han_size": float(spec.get("han_size") or d["han_size"]),
-        "pinyin_ratio": float(spec.get("pinyin_ratio") or 0.42),
+        "pinyin_ratio": float(spec.get("pinyin_ratio") or 0.55),
         "vgap": float(spec.get("line_gap_scale") or d.get("vgap", 1.0)),
         "lgap": float(spec.get("line_gap_scale") or d.get("lgap", 0.7)),
         "page": str(spec.get("page") or "A4").upper(),
