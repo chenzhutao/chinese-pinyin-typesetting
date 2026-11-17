@@ -690,9 +690,13 @@ def _choose_verse_layout(cfg: dict, ann: Annotation) -> dict:
     m["fs"] = plan["fs"]
     row_budget = _column_budget(cfg, plan["fs"], content_w)
     plan["row_budget"] = row_budget
-    plan["wrap"] = any(          # 存在超宽行（离群标题等）→ 该行行内折行
-        _line_units(row, cell_r) > row_budget + 0.01
-        for st in m["dl_stanzas"] for row in st)
+    over_rows = [row for st in m["dl_stanzas"] for row in st
+                 if _line_units(row, cell_r) > row_budget + 0.01]
+    plan["wrap"] = bool(over_rows)   # 存在超宽行（离群标题等）→ 该行行内折行
+    plan["overflow"] = [              # 溢出定位：哪一节、哪一行（供可操作提示）
+        {"stanza": si + 1, "text": "".join(t.text for t in row)[:12]}
+        for si, st in enumerate(m["dl_stanzas"]) for row in st
+        if _line_units(row, cell_r) > row_budget + 0.01]
     plan["pages_est"] = _pages_needed(m)
     plan["rows_per_stanza"] = m["rows_per_stanza"]
     return plan
@@ -948,6 +952,7 @@ def render_document(spec: dict, ann: Annotation, ann_title, ann_author,
         "target_pages": cfg["target_pages"] or None,
         "margin_mm": [round(v, 1) for v in cfg["margin_mm"]],
         "line_gap_scale": round(cfg["vgap"], 2),
+        "overflow": plan.get("overflow", []) if plan is not None else [],
     }
     if plan is not None and cfg["target_pages"] and plan["pages_est"] > cfg["target_pages"]:
         layout["target_met"] = False

@@ -233,7 +233,11 @@ def build(args) -> dict:
             ann_title = pr.annotate(re.sub(r"^[《〈]+|[》〉]+$", "", t))
     ann_author = None
     if spec.get("author") and spec.get("annotate_author", False):
-        ann_author = pr.annotate(str(spec["author"]))
+        d = str(spec.get("dynasty") or "").strip()
+        # 注音对象含朝代：〔唐〕与作者名同一行注音单元（共享 rowh 基线），
+        # 否则 annotate_author 时朝代会被整个丢掉
+        label = f"〔{d}〕{spec['author']}" if d else str(spec["author"])
+        ann_author = pr.annotate(label)
 
     out = Path(args.out) if args.out else Path(default_output_name(spec, template))
     if out.parent and not out.parent.exists():
@@ -249,6 +253,10 @@ def build(args) -> dict:
     layout = info.get("layout") or {}
     if layout.get("strategy") == "couplet":
         warnings.append("已按一联一行合并排版（couplet），可用 --set couplet=false 改回一句一行")
+    for ov in (layout.get("overflow") or [])[:3]:
+        warnings.append(
+            f"第 {ov['stanza']} 节「{ov['text']}…」超出栏宽，已在句读/标点处折行；"
+            "可减小 han_size、改单栏（columns=1）或降低页数目标")
     if layout.get("target_pages") and layout.get("target_met") is False:
         warnings.append(f"无法达到 {layout['target_pages']} 页目标（当前约 "
                         f"{layout['pages_est']} 页）：字号已到 readability 下限，"

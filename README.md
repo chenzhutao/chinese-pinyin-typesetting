@@ -2,7 +2,7 @@
 
 简体中文 | [English](README_EN.md)
 
-**AI Agent Skill · v1.3.1 · 适配支持 Skill 加载规范与本地脚本执行的 Agent · 零第三方依赖 · MIT**
+**AI Agent Skill · v1.3.2 · 适配支持 Skill 加载规范与本地脚本执行的 Agent · 零第三方依赖 · MIT**
 
 面向 AI Agent 的中文注音排版技能：把古诗、儿歌、课文、短文变成**教材风格的注音 HTML**——每个汉字上方是带声调的汉语拼音（ā á ǎ à、ü、轻声齐全），诗句居中基线对齐，A4 打印不截断，手机阅读不横向滚动。注音体系是 Hanyu Pinyin（汉语拼音，中国大陆简体中文的标准注音方案），**不是**台湾注音符号 Zhuyin / Bopomofo（ㄅㄆㄇ），也不支持注音符号。
 
@@ -83,7 +83,7 @@ stdout 返回 JSON 摘要（含 `review` 多音字提示），退出码 0/2。�
 
 ## 版本信息
 
-当前 **v1.3.1**（2026-11-16）· 项目自身：MIT（[LICENSE](LICENSE)，仅适用于本项目原创代码与内容）；内置 pypinyin 及拼音数据适用各自许可证（详见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)）· 发布包：[Release v1.2.0](https://github.com/chenzhutao/chinese-pinyin-typesetting/releases/tag/v1.2.0)（v1.3.0 发布包待发布）
+当前 **v1.3.2**（2026-11-16）· 项目自身：MIT（[LICENSE](LICENSE)，仅适用于本项目原创代码与内容）；内置 pypinyin 及拼音数据适用各自许可证（详见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)）· 发布包：[Release v1.2.0](https://github.com/chenzhutao/chinese-pinyin-typesetting/releases/tag/v1.2.0)（v1.3.0 发布包待发布）
 
 - v1.3.1：古诗语义折行与几何行组织——折行只在小句边界（句读后），「未磨。」式孤尾绝迹；行组织按栏宽/字号贪心装行，双栏窄栏自动拆完整小句；字号二分求解（页数估算与实际一致）；离群长标题行不再压低整册字号；末页孤行结构性消除
 - v1.3.0：自适应诗行排版（一句一行/一联一行、`couplet` 可强制）；页数目标 `target_pages`（联合调字号/行距/边距，字号有硬下限）；分页结构重做（标题绝不孤立成页、田字格与诗句成对）
@@ -91,4 +91,4 @@ stdout 返回 JSON 摘要（含 `review` 多音字提示），退出码 0/2。�
 - v1.1.4：拼音默认字号提升至汉字的 55%
 - v1.1.3：修复 phrase + all 定位纠音崩溃；首个公开版本
 
-仓库自带 63 项单元测试、33 项浏览器体检与 PDF 实测体检脚本（`tests/`）；开发维护规范（不变量、连带影响矩阵与回归协议）见 [references/maintenance.md](references/maintenance.md)。
+仓库自带 68 项单元测试、33 项浏览器体检与 PDF 实测体检脚本（`tests/`）；开发维护规范（不变量、连带影响矩阵与回归协议）见 [references/maintenance.md](references/maintenance.md)。

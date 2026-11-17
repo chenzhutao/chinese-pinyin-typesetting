@@ -507,3 +507,36 @@ def test_display_lines_geometry_and_balance():
 
 def _han_of_cells(tokens) -> str:
     return "".join(t.text for t in tokens)
+
+
+def test_annotate_author_keeps_dynasty():
+    """annotate_author=true：朝代〔唐〕与作者同用注音单元渲染——
+    不得丢失，且括号与汉字共享同一行高基线。"""
+    info = rd.render_document(
+        {"title": "望洞庭", "author": "刘禹锡", "dynasty": "唐",
+         "annotate_author": True, "_template": "poem",
+         "text": "湖光秋月两相和，潭面无风镜未磨。"},
+        pr.annotate("湖光秋月两相和，潭面无风镜未磨。"),
+        None, pr.annotate("〔唐〕刘禹锡"),
+        TMP / "au_dyn.html")
+    doc = (TMP / "au_dyn.html").read_text(encoding="utf-8")
+    m = re.search(r'<div class="a-line">(.*?)</div>', doc, re.S)
+    han = _han_of(m.group(1))
+    assert han == "〔唐〕刘禹锡"                     # 朝代不丢失
+    assert m.group(1).count("<ruby") == 6            # 〔唐〕刘禹锡 6 单元全为注音单元
+
+
+def test_layout_overflow_located():
+    """布局溢出定位：超宽行进入 layout.overflow（节号 + 行文本）。"""
+    _, doc_html = make_info(
+        {"title": "超长标题合集", "text": "《这是一个特别长的诗集标题用来触发溢出》\n床前明月光，疑是地上霜。"
+         "\n\n" + "\n\n".join(f"《短{i}》\n春眠不觉晓，处处闻啼鸟。" for i in range(8)),
+         "columns": 2}, "ov1.html")
+    import json as _json
+    info2, _ = make_info(
+        {"title": "超长标题合集", "text": "《这是一个特别长的诗集标题用来触发溢出》\n床前明月光，疑是地上霜。"
+         "\n\n" + "\n\n".join(f"《短{i}》\n春眠不觉晓，处处闻啼鸟。" for i in range(8)),
+         "columns": 2}, "ov2.html")
+    assert info2["layout"]["overflow"], "超宽行应被定位"
+    assert info2["layout"]["overflow"][0]["stanza"] >= 1
+    assert info2["layout"]["overflow"][0]["text"]

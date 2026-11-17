@@ -79,17 +79,22 @@
 | `tone_sandhi` | yi_bu/none | yi_bu | "一/不"是否按统编教材标变调（none=全部本调） |
 | `overrides` | array | [] | 读音覆盖，见下 |
 
+内置教材词典（`scripts/_vendor/pypinyin/curated_phrases.json`）：整句与**词语级**
+条目（如"乡音无改鬓毛衰"整句、"见牛羊""游子""西子""赋得"词语）自动应用，
+词语命中后不再受结构助词等启发式影响。**扩展方式**：直接向该 JSON 添加
+`"词语": [["音1"], ["音2"], …]` 条目（音节顺序与汉字一一对应），无需改代码。
+
 ### overrides 四种定位（每条必须且只能用一种）
 
 ```json
 {"index": 6,  "pinyin": "cuī", "expect": "衰"}     // 整段文本码点偏移，0 起始，含标点换行
-{"line": 3,  "char": 2, "tone": 4}                  // 第 3 个非空行第 2 个汉字；tone 只改声调
+{"line": 3,  "char": 2, "tone": 4, "expect": "头"}   // 第 3 个非空行第 2 个汉字；tone 只改声调；expect 守卫防原文改动后错位
 {"phrase": "鬓毛衰", "pinyin": "bìn máo cuī", "occurrence": 1}   // 或 "all": true
 {"char": "衰", "pinyin": "cuī", "occurrence": 1}    // 或 "all": true（同一读音应用到每处）
 ```
 
 - `pinyin` 与 `tone`（1-5，5=轻声）二选一；拼音兼容 `cuī`/`cui1`/`lv4`/`shang4`。
-- `expect`（index 定位）守卫：位置上的汉字与预期不符时报错，防错位误改。
+- `expect`（index 与 line+char 定位）守卫：位置上的汉字与预期不符时报错，防原文修改后序号错位、拼音误标到别的字。
 - 同一目标多处出现且未指定 `occurrence`/`all` 时报错并列出全部位置。
 
 ## 命令行
@@ -109,7 +114,7 @@ generate.py --text "《静夜思》李白\n床前明月光，…" [--title ...] 
 
 `ok` `output` `template` `mode` `hanzi_count` `han_size_pt` `pinyin_size_pt`
 `layout`（`strategy`=clause/couplet/flow、`pages_est` 估算页数、`target_pages`、
-`margin_mm`、`line_gap_scale`、未达标时 `target_met:false`）
+`margin_mm`、`line_gap_scale`、`overflow` 溢出行定位〔节号+内容〕、未达标时 `target_met:false`）
 `overrides_applied[]`（chars/pinyin/override）`review[]`（char/pinyin/line/char_pos/
 kind=rule|polyphone|ambiguous/reason/alternatives）`notes[]`（教材读音分歧提示）
 `warnings[]`（生僻字无拼音、超长句折行、自动联行提示、页数目标未达标）

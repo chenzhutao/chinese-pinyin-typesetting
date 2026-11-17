@@ -82,6 +82,16 @@ python -X utf8 <repo>/tests/pdf_check.py g1.html g2.html g3.html   # 页数/标�
 
 pdf_check 五项全绿才算过；`pages_hanzi` 分布对比上一次提交可发现分页退化。
 
+## 补充边界（2026-11-16，Trae 反馈核查后补录）
+
+- 词典命中优先于启发式：curated_phrases.json 条目经 mmseg 重训参与分词，
+  命中字（word 长度>1）不进 `_context_fixes`——新增教材词语直接加 JSON 条目，
+  不要在启发式里加例外。
+- `annotate_author=true` 的注音对象必须是完整 label（含〔朝代〕），否则朝代
+  会整个丢失；〔〕与汉字同为注音单元共享 rowh 基线（勿用 translateY 补丁）。
+- 双栏 PDF 文本提取：fitz 文本流是视觉行序（左右栏交错），完整性/顺序检查
+  必须按栏分组（左栏→右栏）再按 y 聚类（pdf_check `_visual_rows`）。
+
 ## 已知暂缓（勿顺手修）
 
 - `text-align: justify` 对原子盒行无效（右缘参差）——用户明示暂缓，

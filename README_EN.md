@@ -2,7 +2,7 @@
 
 [简体中文](README.md) | English
 
-**AI Agent Skill · v1.3.1 · For agents that support Skill loading and local script execution · Zero third-party dependencies · MIT**
+**AI Agent Skill · v1.3.2 · For agents that support Skill loading and local script execution · Zero third-party dependencies · MIT**
 
 An AI Agent Skill that turns classical poems, nursery rhymes, textbook passages, and short essays into **textbook-quality annotated HTML**—each character carries its tone-marked Hanyu Pinyin directly above it (ā á ǎ à, ü, neutral tone), verse lines are centered on a shared baseline, A4 printing never truncates, and pages reflow on phones without horizontal scrolling. The romanization system is Hanyu Pinyin (汉语拼音), the standard for Simplified Chinese in mainland China—**not** Zhuyin / Bopomofo (ㄅㄆㄇ), the phonetic script used in Taiwan, which is not supported.
 
@@ -83,12 +83,13 @@ Automatic annotation is not guaranteed perfect: questionable readings go into `r
 
 ## Version
 
-Current: **v1.3.1** (2026-11-16) · Project's own code and content: MIT ([LICENSE](LICENSE)); the vendored pypinyin and its pinyin data are governed by their own licenses (see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)) · Downloads: [Release v1.2.0](https://github.com/chenzhutao/chinese-pinyin-typesetting/releases/tag/v1.2.0) (v1.3.0 package pending)
+Current: **v1.3.2** (2026-11-16) · Project's own code and content: MIT ([LICENSE](LICENSE)); the vendored pypinyin and its pinyin data are governed by their own licenses (see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)) · Downloads: [Release v1.2.0](https://github.com/chenzhutao/chinese-pinyin-typesetting/releases/tag/v1.2.0) (v1.3.0 package pending)
 
+- v1.3.2: textbook dictionary entries (游子/西子/赋得) that override heuristic rules; dynasty 〔唐〕 no longer lost with annotate_author (shared ruby baseline); expect guard for line+char overrides; layout.overflow diagnostics; pdf_check now verifies page size/orientation and ordered content completeness
 - v1.3.1: semantic verse breaking—line breaks only at clause boundaries (after punctuation); geometry-driven line grouping that splits couplets into whole clauses in narrow columns; font size solved by bisection (page estimates match reality); outlier long title lines no longer shrink the whole book; last-page orphan lines structurally eliminated
 - v1.3.0: adaptive verse layout (one-clause or couplet-per-line, forceable via `couplet`); page-count target `target_pages` (jointly tunes font/line-gap/margins with a hard font floor); pagination rework (title never alone on a page, writing grids paired with verse lines)
 - v1.2.0: optional two-column body layout (`columns=2`, available for every template, auto single-column fallback on narrow screens)
 - v1.1.4: default pinyin size raised to 0.55 of the character size
 - v1.1.3: fixed a crash with the phrase + all override locator; first public release
 
-The repository ships 63 unit tests, a 33-check browser audit, and a PDF page-level audit script (`tests/`). The maintenance guide (invariants, coupling matrix, regression protocol) lives in [references/maintenance.md](references/maintenance.md) (Chinese).
+The repository ships 68 unit tests, a 33-check browser audit, and a PDF page-level audit script (`tests/`). The maintenance guide (invariants, coupling matrix, regression protocol) lives in [references/maintenance.md](references/maintenance.md) (Chinese).

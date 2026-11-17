@@ -244,3 +244,41 @@ def test_repeatable():
     first = [(t.text, t.pinyin) for t in pr.annotate(DUANWEN).han_tokens()]
     second = [(t.text, t.pinyin) for t in pr.annotate(DUANWEN).han_tokens()]
     assert first == second
+
+
+# ---------------------------------------------------------------------------
+# 教材词典与守卫（v1.3.2）
+# ---------------------------------------------------------------------------
+
+def test_textbook_word_dictionary():
+    """词语级词典条目：游子/西子（名词性"子"读 zǐ，非轻声）、赋得（dé）。
+    词典命中后不得再被结构助词启发式误改。"""
+    a = pr.annotate("慈母手中线，游子身上衣。")
+    zi = [t.pinyin for t in a.han_tokens() if t.text == "子"]
+    assert zi == ["zǐ"]
+    a2 = pr.annotate("欲把西湖比西子。")
+    assert [t.pinyin for t in a2.han_tokens() if t.text == "子"] == ["zǐ"]
+    a3 = pr.annotate("赋得古原草送别")
+    de = [t.pinyin for t in a3.han_tokens() if t.text == "得"]
+    assert de == ["dé"]
+    # 结构助词规则不受词典影响
+    a4 = pr.annotate("他跑得很快。")
+    assert [t.pinyin for t in a4.han_tokens() if t.text == "得"] == ["de"]
+
+
+def test_line_char_override_expect_guard():
+    """line+char 定位支持 expect 守卫：位置上的汉字与预期不符时报错，
+    防止原文修改后序号错位、拼音标到别的字上。"""
+    a = pr.annotate("床前明月光，疑是地上霜。",
+                    overrides=[{"line": 1, "char": 1, "tone": 2, "expect": "床"}])
+    assert a.lines[0][0].pinyin == "chuáng"
+    with pytest.raises(pr.PinyinSpecError, match="守卫字符"):
+        pr.annotate("床前明月光，疑是地上霜。",
+                    overrides=[{"line": 1, "char": 1, "tone": 2, "expect": "光"}])
+
+
+def test_review_alternatives_full_syllables():
+    """review 的 alternatives 必须是完整音节（曾因取首字符显示 ['b','p']）。"""
+    a = pr.annotate("欲把西湖比西子。")
+    alts = [r.get("alternatives") for r in a.review if r["char"] == "把"]
+    assert alts and all(len(s) >= 2 for s in alts[0])
