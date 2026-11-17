@@ -697,7 +697,30 @@ def _choose_verse_layout(cfg: dict, ann: Annotation) -> dict:
         {"stanza": si + 1, "text": "".join(t.text for t in row)[:12]}
         for si, st in enumerate(m["dl_stanzas"]) for row in st
         if _line_units(row, cell_r) > row_budget + 0.01]
-    plan["pages_est"] = _pages_needed(m)
+    # 只修正最终报告的双栏页数，不改变字号与联行策略的选择。
+    # CSS 对 flow 节采用 column-fill:balance；旧 _pack_columns 将整节
+    # 放在单栏，导致两种策略都高估。普通不可拆节仍用原估算。
+    if cfg["columns"] > 1 and not cfg["copy_rows"]:
+        fs = plan["fs"]
+        row_pitch = (m["row_k"] + cfg["vgap"]) * fs
+        header_h = m["header_k"] * fs
+        flow_rows, atomic_rows = 0, []
+        for i, n in enumerate(m["rows_per_stanza"]):
+            stanza_h = (n * (m["row_k"] + cfg["vgap"]) - cfg["vgap"]) * fs
+            if stanza_h + (header_h if i == 0 else 0) > m["content_h"] + 0.5:
+                flow_rows += n
+            else:
+                atomic_rows.append(n)
+        if flow_rows and not atomic_rows:
+            # 每栏行数向上取整；额外保留两行 widow-keep 的安全空间。
+            per_col = math.ceil(flow_rows / cfg["columns"])
+            balanced_h = header_h + per_col * row_pitch + m["row_k"] * fs
+            pages_est = max(1, math.ceil(balanced_h / m["content_h"] - 1e-6))
+        else:
+            pages_est = _pages_needed(m)
+    else:
+        pages_est = _pages_needed(m)
+    plan["pages_est"] = pages_est
     plan["rows_per_stanza"] = m["rows_per_stanza"]
     return plan
 
