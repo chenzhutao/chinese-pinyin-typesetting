@@ -240,7 +240,7 @@ def test_override_phrase_priority_and_order():
                         {"phrase": "赋得", "pinyin": "fù dé"},
                         {"char": "得", "pinyin": "de"},
                     ])
-    got = [(t.text, t.pinyin, t.overridden) for t in a.han_tokens()[:2]]
+    got = [(t.text, t.pinyin, t.overridden) for t in list(a.han_tokens())[:2]]
     assert got == [("赋", "fù", True), ("得", "de", True)]
 
 
