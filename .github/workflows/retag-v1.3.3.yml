@@ -1,0 +1,21 @@
+name: Update v1.3.3 tag after commit-message translation
+
+on:
+  push:
+    paths:
+      - '.github/workflows/retag-v1.3.3.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  retag:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Move v1.3.3 tag to the rewritten release commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api --method PATCH repos/${{ github.repository }}/git/refs/tags/v1.3.3 \
+            -f sha=0eefae4f28a8a925919afca9dd174042dc4e3e51 \
+            -F force=true
