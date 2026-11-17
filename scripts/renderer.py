@@ -461,10 +461,26 @@ def _layout_metrics_at(cfg: dict, frag_stanzas, cell_r: float, merge: bool,
         header_k += 0.62 + 0.8                        # 姓名/日期栏
     tian_k = 2.0 * cfg["copy_rows"] if cfg["copy_rows"] else 0.0
     rows_per_stanza = [len(dl) for dl in dl_stanzas] or [1]
-    # 纵向：按节贪心分栏（节不跨栏），取最高一栏的高度
+    # 普通节保持原子；超出一页高度的 flow 节允许浏览器跨栏。
+    # 旧算法把单个超高节全部计入一栏，导致双栏估算 2 页而实际仅 1 页。
+    # 仅拆分超过页高的节，避免改变短节的 break-inside:avoid 语义。
+    if cols > 1:
+        row_height_k = row_k + cfg["vgap"] + tian_k
+        capacity = max(1, int((content_h / fs + cfg["vgap"]) / row_height_k))
+        packed_rows = []
+        for n in rows_per_stanza:
+            stanza_height = n * row_height_k - cfg["vgap"]
+            if stanza_height * fs > content_h + 0.5:
+                packed_rows.extend([capacity] * (n // capacity))
+                if n % capacity:
+                    packed_rows.append(n % capacity)
+            else:
+                packed_rows.append(n)
+    else:
+        packed_rows = rows_per_stanza
     body_k = max(
         rows * (row_k + cfg["vgap"]) - cfg["vgap"] + max(st - 1, 0) * 1.6 + rows * tian_k
-        for rows, st in _pack_columns(rows_per_stanza, cols)
+        for rows, st in _pack_columns(packed_rows, cols)
     )
     return {"dl_stanzas": dl_stanzas, "rows_per_stanza": rows_per_stanza,
             "max_units": max_units, "header_k": header_k, "body_k": body_k,
