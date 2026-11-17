@@ -1,0 +1,51 @@
+name: Generate README screenshots
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - '.github/workflows/readme-screenshots.yml'
+jobs:
+  screenshots:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install browser and Chinese fonts
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y fonts-noto-cjk
+          python -m pip install playwright
+          python -m playwright install --with-deps chromium
+      - name: Capture real rendered examples
+        run: |
+          mkdir -p assets/previews
+          python - <<'PY'
+          from pathlib import Path
+          from playwright.sync_api import sync_playwright
+          examples = {
+              "poem": "1_jingyesi_poem.html",
+              "reading": "6_duanwen_reading.html",
+              "columns": "11_duanwen_twocol.html",
+              "worksheet": "9_jingyesi_wshanzi.html",
+          }
+          with sync_playwright() as p:
+              browser = p.chromium.launch()
+              page = browser.new_page(viewport={"width": 1100, "height": 1200}, device_scale_factor=1.5)
+              for name, filename in examples.items():
+                  page.goto((Path("examples") / filename).resolve().as_uri())
+                  page.locator(".sheet").first.screenshot(path=f"assets/previews/{name}.png", animations="disabled")
+              browser.close()
+          PY
+      - name: Commit screenshots
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add assets/previews/*.png
+          if ! git diff --cached --quiet; then
+            git commit -m "docs: add real browser screenshots of example layouts"
+            git push
+          fi
