@@ -10,6 +10,9 @@ jobs:
   release:
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
       - name: Create v1.3.3 release
         env:
           GH_TOKEN: ${{ github.token }}
