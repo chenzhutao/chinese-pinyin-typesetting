@@ -282,3 +282,29 @@ def test_review_alternatives_full_syllables():
     a = pr.annotate("欲把西湖比西子。")
     alts = [r.get("alternatives") for r in a.review if r["char"] == "把"]
     assert alts and all(len(s) >= 2 for s in alts[0])
+
+
+# ---------------------------------------------------------------------------
+# 教材与古诗读音回归样本：按完整语境检查，不依赖分词实现细节
+# 新增已核实的误读时，优先在这里补一条测试，再修改词典或规则。
+# ---------------------------------------------------------------------------
+
+@pytest.mark.parametrize("text, target, expected", [
+    ("赋得古原草送别", "得", "dé"),
+    ("欲把西湖比西子。", "子", "zǐ"),
+    ("慈母手中线，游子身上衣。", "子", "zǐ"),
+    ("风吹草低见牛羊", "见", "xiàn"),
+    ("千里江陵一日还", "还", "huán"),
+    ("远上寒山石径斜", "斜", "xié"),
+    ("他跑得很快。", "得", "de"),
+    ("妈妈看着弟弟。", "弟", "dì"),
+])
+def test_verified_reading_regression(text, target, expected):
+    """回归检查完整语境中的目标字，防止词典和启发式互相覆盖。"""
+    annotation = pr.annotate(text)
+    matches = [t.pinyin for t in annotation.han_tokens() if t.text == target]
+    if text == "妈妈看着弟弟。":
+        # 该句有两个「弟」：只核对首个音节。
+        assert matches[0] == expected
+    else:
+        assert matches == [expected]
