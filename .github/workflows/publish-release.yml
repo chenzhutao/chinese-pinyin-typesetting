@@ -1,6 +1,9 @@
 name: Publish GitHub Release
 
 on:
+  push:
+    paths:
+      - .github/workflows/publish-release.yml
   workflow_dispatch:
 
 permissions:
