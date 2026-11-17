@@ -26,7 +26,7 @@ jobs:
           
           ### 本次更新
           
-          - **PDF 排版**：改进分页页数估算，并增加基于 Chromium 实际渲染结果的回归测试。
+          - **PDF 排版**：改进分页页数估算，减少排版预估与实际 PDF 页数之间的偏差。
           - **注音样本库**：新增结构化的教材与古诗读音样本，便于持续积累和验证已核实的读音。
           - **人工纠音**：修复人工指定读音后，旧的自动规则仍出现在复核列表中的问题；人工纠音现在作为最终结果。
           - **自动测试**：增加注音与 PDF 分页的 GitHub Actions 回归测试。
@@ -42,7 +42,7 @@ jobs:
           
           ### Highlights
           
-          - **PDF layout**: Improved pagination estimation and added regression checks against actual Chromium-rendered PDFs.
+          - **PDF layout**: Improved pagination estimation to better match the actual number of rendered PDF pages.
           - **Pronunciation fixtures**: Added a structured dataset of verified textbook and classical-poem readings.
           - **Manual overrides**: Fixed stale automatic-review entries after a manual pronunciation override. Manual corrections now remain authoritative.
           - **Automated tests**: Added GitHub Actions regression tests for pronunciation and PDF pagination.
