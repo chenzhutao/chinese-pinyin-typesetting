@@ -3,7 +3,7 @@ name: Publish GitHub Release
 on:
   push:
     paths:
-      - .github/workflows/publish-release.yml
+      - '.github/workflows/publish-release.yml'
   workflow_dispatch:
 
 permissions:
@@ -16,24 +16,53 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: main
-      - name: Create v1.3.3 release
+      - name: Create or update v1.3.3 release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          if gh release view v1.3.3 --repo ${{ github.repository }} >/dev/null 2>&1; then
-            echo "Release v1.3.3 already exists; refusing to overwrite."
-            exit 1
-          fi
           git archive --format=zip --output=chinese-pinyin-typesetting.zip main
-          gh release create v1.3.3 chinese-pinyin-typesetting.zip \
-            --repo ${{ github.repository }} \
-            --target main \
-            --title "v1.3.3" \
-            --notes "### Highlights
-          - Improved PDF pagination estimation and regression coverage.
-          - Added curated textbook and classical-poem pronunciation fixtures.
-          - Expanded manual pronunciation override priority tests.
-          - Added automated pronunciation and PDF pagination checks.
-          - Updated Chinese and English README previews.
+          cat > release-notes.md <<'EOF'
+## 中文说明
 
-          See CHANGELOG.md for details."
+### 本次更新
+
+- **PDF 排版**：改进分页页数估算，并增加基于 Chromium 实际渲染结果的回归测试。
+- **注音样本库**：新增结构化的教材与古诗读音样本，便于持续积累和验证已核实的读音。
+- **人工纠音**：修复人工指定读音后，旧的自动规则仍出现在复核列表中的问题；人工纠音现在作为最终结果。
+- **自动测试**：增加注音与 PDF 分页的 GitHub Actions 回归测试。
+- **项目文档**：更新中英文 README，并加入真实排版截图。
+
+### 下载
+
+下载下方的 `chinese-pinyin-typesetting.zip`，解压后按项目说明安装或使用。
+
+---
+
+## English
+
+### Highlights
+
+- **PDF layout**: Improved pagination estimation and added regression checks against actual Chromium-rendered PDFs.
+- **Pronunciation fixtures**: Added a structured dataset of verified textbook and classical-poem readings.
+- **Manual overrides**: Fixed stale automatic-review entries after a manual pronunciation override. Manual corrections now remain authoritative.
+- **Automated tests**: Added GitHub Actions regression tests for pronunciation and PDF pagination.
+- **Documentation**: Updated the Chinese and English READMEs with real rendered screenshots.
+
+### Download
+
+Download `chinese-pinyin-typesetting.zip` below and follow the project documentation to install or use it.
+
+See [CHANGELOG.md](https://github.com/chenzhutao/chinese-pinyin-typesetting/blob/main/CHANGELOG.md) for details.
+EOF
+          if gh release view v1.3.3 --repo ${{ github.repository }} >/dev/null 2>&1; then
+            gh release edit v1.3.3 chinese-pinyin-typesetting.zip \
+              --repo ${{ github.repository }} \
+              --title "v1.3.3 — 注音准确性与 PDF 排版可靠性改进" \
+              --notes-file release-notes.md
+          else
+            gh release create v1.3.3 chinese-pinyin-typesetting.zip \
+              --repo ${{ github.repository }} \
+              --target main \
+              --title "v1.3.3 — 注音准确性与 PDF 排版可靠性改进" \
+              --notes-file release-notes.md
+          fi
