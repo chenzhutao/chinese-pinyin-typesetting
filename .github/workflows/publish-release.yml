@@ -18,7 +18,8 @@ jobs:
             echo "Release v1.3.3 already exists; refusing to overwrite."
             exit 1
           fi
-          gh release create v1.3.3 \
+          git archive --format=zip --output=chinese-pinyin-typesetting.zip main
+          gh release create v1.3.3 chinese-pinyin-typesetting.zip \
             --repo ${{ github.repository }} \
             --target main \
             --title "v1.3.3" \
