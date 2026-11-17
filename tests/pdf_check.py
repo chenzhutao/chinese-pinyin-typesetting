@@ -3,13 +3,15 @@
 
 检查项：
 1. 实际页数 == layout.pages_est（估算与真实分页一致）；
-2. 标题不孤立：每一页要么无标题，要么标题下方紧跟正文/作者内容
-   （标题页正文行数 ≥ 1，按汉字数判断）；
+2. 标题不孤立：第 1 页若有标题，其下方应有正文/作者内容；
 3. 汉字字号 ≈ han_size_pt（±8%，取正文汉字 span 的中位字号）；
-4. 拼音对应：抽若干汉字，其正上方（同 x 中心 ±20% 字宽）存在拼音 span。
+4. 拼音对应：抽若干汉字，其正上方（同 x 中心）存在拼音 span；
+5. 孤尾短行：按 y 坐标聚类视觉行（fitz splitlines 的 span 顺序
+   不可信——"磨。"式假象），以句读结尾且 ≤3 字的行视为孤尾
+   （完整短小句如"江南好，"以逗号结尾不算）。
 
 用法：python tests/pdf_check.py case1.html case2.html …
-      （HTML 由 generate.py --pdf 同名导出 PDF；无 PDF 时报 skip）
+      （HTML 由 generate.py --pdf 同名导出 PDF；无 PDF 时报 skip 并退出 0）
 依赖 PyMuPDF（fitz）；找不到时输出 skip 并退出 0。
 """
 
@@ -43,6 +45,35 @@ def export_pdf(exe: str, html: Path) -> Path | None:
     r = subprocess.run(cmd, capture_output=True, text=True, timeout=120,
                        encoding="utf-8", errors="replace")
     return pdf if r.returncode == 0 and pdf.is_file() and pdf.stat().st_size else None
+
+
+def _visual_rows(page) -> list[str]:
+    """按 y 坐标聚类视觉行，返回每行的汉字+标点序列。
+
+    fitz 的 splitlines 按 span 顺序输出，一行会被拆散（句号 span 单独
+    成行造成"磨。"假象）——必须按 baseline 聚类。
+    """
+    spans = []
+    for blk in page.get_text("dict")["blocks"]:
+        for ln in blk.get("lines", []):
+            for sp in ln["spans"]:
+                if sp["text"].strip():
+                    spans.append((sp["bbox"][1], sp["bbox"][0], sp["text"]))
+    spans.sort()
+    rows: list[list[float, list]] = []
+    for y, x, t in spans:
+        if rows and abs(rows[-1][0] - y) <= 4:
+            rows[-1][1].append((x, t))
+        else:
+            rows.append([y, [(x, t)]])
+    out = []
+    for _y, items in rows:
+        items.sort()
+        han = "".join(re.findall(
+            r"[\u4e00-\u9fff，。、；：！？《》〔〕（）]", "".join(t for _, t in items)))
+        if han:
+            out.append(han)
+    return out
 
 
 def check(html: Path) -> dict:
@@ -95,6 +126,12 @@ def check(html: Path) -> dict:
                        and 0 < y0 - p["bbox"][3] < (x1 - x0) * 2.5
                        for p in py_spans):
                     py_ok += 1
+        # 孤尾短行：视觉行以句号/问号结尾且正文 ≤3 字（完整短小句"江南好，"
+        # 以逗号结尾不算；问句"能不忆江南？"5 字不算）
+        for han in _visual_rows(page):
+            core = han.rstrip("。？，、；：")
+            if han.endswith(("。", "？")) and 0 < len(core) <= 3:
+                problems.append(f"第{i+1}页孤尾短行「{han}」")
     doc.close()
     if py_total >= 10 and py_ok / py_total < 0.9:
         problems.append(f"拼音对应率 {py_ok}/{py_total} 偏低")
