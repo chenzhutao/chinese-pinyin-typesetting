@@ -1,0 +1,240 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>外婆的小菜园</title>
+<style>
+@page { size: A4 portrait; margin: 18.0mm 18.0mm; }
+.sheet {
+  --fs-base: 15.50pt; --fs: 15.50pt;
+  --pyr: 0.5500; --cellr: 1.5700;
+  --units: 12.00; --t-scale: 1.3200;
+  --py: calc(var(--fs) * var(--pyr));
+  --cell: calc(var(--fs) * var(--cellr));
+  --hzlh: calc(var(--fs) * 1.18);
+  --pyh: calc(var(--py) * 1.7);
+  --rowh: calc(var(--pyh) + var(--hzlh));
+  --fst: calc(var(--fs) * var(--t-scale));
+  --t-cell: calc(var(--fst) * var(--cellr));
+  --t-hzlh: calc(var(--fst) * 1.18);
+  --t-py: calc(var(--fst) * var(--pyr));
+  --t-pyh: calc(var(--t-py) * 1.7);
+  --t-rowh: calc(var(--t-pyh) + var(--t-hzlh));
+  --page-w: 210.0mm; --pad: 18.0mm 18.0mm;
+  --vgap: 1.00; --lgap: 0.70;
+  --fh: "KaiTi", "楷体", "STKaiti", "Kaiti SC", "Kaiti TC", "DFKai-SB", "AR PL UKai CN", "Noto Serif CJK SC", "Noto Sans CJK SC", serif;
+}
+:root { --fh: "KaiTi", "楷体", "STKaiti", "Kaiti SC", "Kaiti TC", "DFKai-SB", "AR PL UKai CN", "Noto Serif CJK SC", "Noto Sans CJK SC", serif; }
+/* chinese-pinyin-typesetting 共享排版基础
+   —— 注音单元不依赖浏览器默认 ruby 排版：display:inline-flex 列布局，
+   拼音行高、汉字行高、单元总高全部显式固定，保证同句基线对齐、
+   拼音不重叠、声调符号不裁剪。 */
+
+:root {
+  /* 由 renderer.py 按文档计算注入：
+     --fs 汉字字号(pt)  --py 拼音字号(pt)  --cell 注音单元宽
+     --rowh 单元总高    --fst 标题字号     --units 最长行单元数(移动端缩放) */
+  --fh: "KaiTi", "楷体", "STKaiti", "Kaiti SC", "Kaiti TC", "DFKai-SB",
+        "AR PL UKai CN", "Noto Serif CJK SC", "Noto Sans CJK SC", serif;
+  --fp: "Segoe UI", "PingFang SC", "Microsoft YaHei", "Helvetica Neue",
+        "Arial", sans-serif;
+  --ink: #1a1a1a;
+  --ink-py: #40464e;
+  --line: #b9c0c8;
+  --dash: #cfd6dd;
+}
+
+* { box-sizing: border-box; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+
+html, body { margin: 0; padding: 0; }
+
+body {
+  background: #eceef0;
+  color: var(--ink);
+  font-family: var(--fh);
+  line-height: 1;
+  -webkit-font-smoothing: antialiased;
+}
+
+@media screen {
+  body { display: flex; flex-direction: column; align-items: center; justify-content: center;
+         min-height: 100vh; }
+}
+
+.sheet {
+  container-type: inline-size;   /* 钳制公式以内容宽（100cqw）为准：手机/A5/窄容器一致 */
+  width: min(100%, var(--page-w));  /* 容器查询下尺寸不能依赖内容：显式给宽 */
+  background: #fff;
+  margin: 16px auto;
+  padding: var(--pad);
+  box-shadow: 0 1px 6px rgba(20, 30, 40, .18);
+  max-width: var(--page-w);
+}
+
+/* ---- 注音单元 ------------------------------------------------------ */
+
+.c {
+  display: inline-flex;
+  flex-direction: column-reverse;   /* 汉字在下、拼音在上；DOM 仍是 rb-后-rt */
+  align-items: center;
+  justify-content: flex-start;
+  min-width: var(--cell);
+  height: var(--rowh);
+  vertical-align: bottom;
+}
+
+.c .h {
+  font-family: var(--fh);
+  font-size: var(--fs);
+  line-height: var(--hzlh);
+  font-weight: 400;
+  white-space: nowrap;
+}
+
+.c .y {
+  display: block;
+  font-family: var(--fp);
+  font-size: var(--py);
+  line-height: 1.25;
+  height: var(--pyh);
+  white-space: nowrap;
+  color: var(--ink-py);
+  letter-spacing: .01em;
+}
+
+/* 标点单元：全角字形盒 1em；左墨迹句读（，。、）裁掉空白右半，
+   不占汉字注音空间，也不产生行尾溢出 */
+.c.p { min-width: 0; width: var(--fs); }
+.c.p .h { display: block; width: 100%; text-align: left; }
+.c.p .y { visibility: hidden; }        /* 占位保持行高，不显示空拼音 */
+.c.p.tuck { width: calc(var(--fs) * .56); }
+.c.p.tuck .h { overflow: hidden; }
+
+/* 拉丁词/数字单元：与汉字同高，保证行内基线一致 */
+.c.lat { min-width: 0; padding: 0 calc(var(--fs) * .06); }
+.c.lat .h { font-size: calc(var(--fs) * .86); }
+
+/* 空白单元 */
+.c.sp { min-width: calc(var(--fs) * .5); visibility: hidden; }
+
+/* 只显汉字（朗诵/背诵）模式：无拼音行，紧凑 */
+body.mode-hanzi .c { min-width: calc(var(--fs) * 1.12); height: var(--hzlh); }
+
+/* 看拼音写汉字：汉字换成田字格 */
+.tz {
+  display: inline-block;
+  width: var(--fs);
+  height: var(--fs);
+  margin: calc((var(--hzlh) - var(--fs)) / 2) 0;
+  border: 1.4px solid var(--line);
+  border-radius: 2px;
+  position: relative;
+  background: #fff;
+}
+.tz::before {
+  content: ""; position: absolute; left: 0; right: 0; top: 50%;
+  border-top: 1px dashed var(--dash);
+}
+.tz::after {
+  content: ""; position: absolute; top: 0; bottom: 0; left: 50%;
+  border-left: 1px dashed var(--dash);
+}
+
+/* 给汉字注音练习：拼音位换成书写空线 */
+.y.blank {
+  border-bottom: 1.2px solid var(--line);
+  width: 88%;
+  height: calc(var(--pyh) - 2px);
+}
+
+/* 避头尾：汉字与其后标点不拆行 */
+.nb { white-space: nowrap; }
+
+/* ---- 页眉（标题/作者） --------------------------------------------- */
+
+header.hd { text-align: center; margin: 0 0 calc(var(--fs) * 1.1); }
+
+.t-line {
+  display: block;
+  text-align: center;
+  line-height: 1;
+}
+.t-line .c { height: calc(var(--t-rowh)); min-width: var(--t-cell); }
+.t-line .c .h { font-size: var(--fst); line-height: var(--t-hzlh); }
+.t-line .c .y { font-size: var(--t-py); height: var(--t-pyh); }
+.t-line .c.p { min-width: calc(var(--fst) * .52); }
+
+.a-line {
+  margin-top: calc(var(--fs) * .5);
+  font-family: var(--fh);
+  font-size: calc(var(--fs) * .72);
+  color: #333;
+  letter-spacing: .12em;
+}
+
+/* ---- 双栏排版（spec columns=2）：正文双栏，页眉/页脚通栏 ----------------
+   栏间距系数 2.5 与 renderer.py 的 COLUMN_GAP_K 保持同步（栏宽求解用）。 */
+
+body.cols-2 main {
+  column-count: 2;
+  column-gap: calc(var(--fs) * 2.5);
+  column-fill: balance;
+}
+body.cols-2 .stanza { break-inside: avoid; }   /* 节不跨栏：屏幕分栏也生效（打印规则见下） */
+
+/* ---- 移动端：按最长行整体缩放字号（--fs 及全部派生变量级联），
+        避免水平溢出；仅对诗行排版（body.auto-clamp）生效 ---- */
+
+@media (max-width: 760px) {
+  body.auto-clamp .sheet {
+    /* units 已含 cellr（行宽 = units × fs），按可用宽直接解字号上限；
+       多除一次 cellr 会导致七言诗在真实窄屏（≤400px）句中折行 */
+    --fs: min(var(--fs-base), calc((100cqw - 28px) / var(--units)));
+  }
+  /* 双栏在窄屏回退单栏：仅屏幕（打印时按纸张宽评估媒体查询，A5 会误触发） */
+  @media screen and (max-width: 760px) {
+    body.cols-2 main { column-count: 1; }
+  }
+  .sheet { margin: 0; box-shadow: none; max-width: 100%; padding: 14px 10px; }
+}
+
+/* ---- 打印 ----------------------------------------------------------- */
+
+@media print {
+  body { background: #fff; }
+  .sheet {
+    margin: 0; padding: 0; box-shadow: none; max-width: none;
+    width: auto; container-type: normal;
+  }
+  .stanza, .ws-line, .tian-row { break-inside: avoid; page-break-inside: avoid; }
+  header.hd, .grp-head { break-after: avoid-page; page-break-after: avoid; }
+  .para { orphans: 2; widows: 2; }
+}
+
+/* ---- 课文阅读版 ---------------------------------------------------- */
+main.flow { text-align: justify; text-justify: inter-ideograph; }
+.para {
+  margin: 0 0 calc(var(--fs) * var(--vgap));
+  line-height: calc(var(--rowh) + var(--fs) * var(--lgap));
+  text-indent: calc(var(--cell) * 2);   /* 两个注音格：与教材拼音读物一致 */;
+}
+.para:last-child { margin-bottom: 0; }
+.py-note {
+  margin-top: calc(var(--fs) * 1.2);
+  text-align: center;
+  font-size: calc(var(--fs) * .5);
+  color: #6a7280;
+  font-family: var(--fp);
+}
+</style>
+</head>
+<body class="mode-both tpl-reading cols-2">
+<div class="sheet">
+  <header class="hd"><div class="t-line"><ruby class="c"><span class="h">外</span><rt class="y">wài</rt></ruby><ruby class="c"><span class="h">婆</span><rt class="y">pó</rt></ruby><ruby class="c"><span class="h">的</span><rt class="y">de</rt></ruby><ruby class="c"><span class="h">小</span><rt class="y">xiǎo</rt></ruby><ruby class="c"><span class="h">菜</span><rt class="y">cài</rt></ruby><ruby class="c"><span class="h">园</span><rt class="y">yuán</rt></ruby></div></header>
+  <main class="flow"><p class="para"><ruby class="c"><span class="h">外</span><rt class="y">wài</rt></ruby><wbr><ruby class="c"><span class="h">婆</span><rt class="y">pó</rt></ruby><wbr><ruby class="c"><span class="h">的</span><rt class="y">de</rt></ruby><wbr><ruby class="c"><span class="h">小</span><rt class="y">xiǎo</rt></ruby><wbr><ruby class="c"><span class="h">菜</span><rt class="y">cài</rt></ruby><wbr><ruby class="c"><span class="h">园</span><rt class="y">yuán</rt></ruby><wbr><ruby class="c"><span class="h">在</span><rt class="y">zài</rt></ruby><wbr><ruby class="c"><span class="h">屋</span><rt class="y">wū</rt></ruby><wbr><ruby class="c"><span class="h">后</span><rt class="y">hòu</rt></ruby><wbr><ruby class="c"><span class="h">的</span><rt class="y">de</rt></ruby><wbr><ruby class="c"><span class="h">坡</span><rt class="y">pō</rt></ruby><wbr><ruby class="c"><span class="h">地</span><rt class="y">dì</rt></ruby><wbr><span class="nb"><ruby class="c"><span class="h">上</span><rt class="y">shàng</rt></ruby><ruby class="c p tuck"><span class="h">，</span><rt class="y">&nbsp;</rt></ruby></span><wbr><ruby class="c"><span class="h">一</span><rt class="y">yī</rt></ruby><wbr><ruby class="c"><span class="h">年</span><rt class="y">nián</rt></ruby><wbr><ruby class="c"><span class="h">四</span><rt class="y">sì</rt></ruby><wbr><ruby class="c"><span class="h">季</span><rt class="y">jì</rt></ruby><wbr><ruby class="c"><span class="h">都</span><rt class="y">dōu</rt></ruby><wbr><ruby class="c"><span class="h">热</span><rt class="y">rè</rt></ruby><wbr><ruby class="c"><span class="h">热</span><rt class="y">rè</rt></ruby><wbr><ruby class="c"><span class="h">闹</span><rt class="y">nào</rt></ruby><wbr><ruby class="c"><span class="h">闹</span><rt class="y">nào</rt></ruby><wbr><span class="nb"><ruby class="c"><span class="h">的</span><rt class="y">de</rt></ruby><ruby class="c p tuck"><span class="h">。</span><rt class="y">&nbsp;</rt></ruby></span></p><p class="para"><ruby class="c"><span class="h">春</span><rt class="y">chūn</rt></ruby><wbr><span class="nb"><ruby class="c"><span class="h">天</span><rt class="y">tiān</rt></ruby><ruby class="c p tuck"><span class="h">，</span><rt class="y">&nbsp;</rt></ruby></span><wbr><ruby class="c"><span class="h">韭</span><rt class="y">jiǔ</rt></ruby><wbr><ruby class="c"><span class="h">菜</span><rt class="y">cài</rt></ruby><wbr><ruby class="c"><span class="h">先</span><rt class="y">xiān</rt></ruby><wbr><ruby class="c"><span class="h">冒</span><rt class="y">mào</rt></ruby><wbr><ruby class="c"><span class="h">出</span><rt class="y">chū</rt></ruby><wbr><ruby class="c"><span class="h">尖</span><rt class="y">jiān</rt></ruby><wbr><ruby class="c"><span class="h">尖</span><rt class="y">jiān</rt></ruby><wbr><ruby class="c"><span class="h">的</span><rt class="y">de</rt></ruby><wbr><ruby class="c"><span class="h">绿</span><rt class="y">lǜ</rt></ruby><wbr><span class="nb"><ruby class="c"><span class="h">芽</span><rt class="y">yá</rt></ruby><ruby class="c p tuck"><span class="h">，</span><rt class="y">&nbsp;</rt></ruby></span><wbr><ruby class="c"><span class="h">蚕</span><rt class="y">cán</rt></ruby><wbr><ruby class="c"><span class="h">豆</span><rt class="y">dòu</rt></ruby><wbr><ruby class="c"><span class="h">开</span><rt class="y">kāi</rt></ruby><wbr><ruby class="c"><span class="h">出</span><rt class="y">chū</rt></ruby><wbr><ruby class="c"><span class="h">黑</span><rt class="y">hēi</rt></ruby><wbr><ruby class="c"><span class="h">白</span><rt class="y">bái</rt></ruby><wbr><ruby class="c"><span class="h">相</span><rt class="y">xiāng</rt></ruby><wbr><ruby class="c"><span class="h">间</span><rt class="y">jiàn</rt></ruby><wbr><ruby class="c"><span class="h">的</span><rt class="y">de</rt></ruby><wbr><ruby class="c"><span class="h">小</span><rt class="y">xiǎo</rt></ruby><wbr><span class="nb"><ruby class="c"><span class="h">花</span><rt class="y">huā</rt></ruby><ruby class="c p tuck"><span class="h">。</span><rt class="y">&nbsp;</rt></ruby></span><wbr><ruby class="c"><span class="h">外</span><rt class="y">wài</rt></ruby><wbr><ruby class="c"><span class="h">婆</span><rt class="y">pó</rt></ruby><wbr><ruby class="c"><span class="h">挎</span><rt class="y">kuà</rt></ruby><wbr><ruby class="c"><span class="h">着</span><rt class="y">zhe</rt></ruby><wbr><ruby class="c"><span class="h">竹</span><rt class="y">zhú</rt></ruby><wbr><span class="nb"><ruby class="c"><span class="h">篮</span><rt class="y">lán</rt></ruby><ruby class="c p tuck"><span class="h">，</span><rt class="y">&nbsp;</rt></ruby></span><wbr><ruby class="c"><span class="h">一</span><rt class="y">yì</rt></ruby><wbr><ruby class="c"><span class="h">边</span><rt class="y">biān</rt></ruby><wbr><ruby class="c"><span class="h">摘</span><rt class="y">zhāi</rt></ruby><wbr><ruby class="c"><span class="h">豌</span><rt class="y">wān</rt></ruby><wbr><ruby class="c"><span class="h">豆</span><rt class="y">dòu</rt></ruby><wbr><span class="nb"><ruby class="c"><span class="h">尖</span><rt class="y">jiān</rt></ruby><ruby class="c p tuck"><span class="h">，</span><rt class="y">&nbsp;</rt></ruby></span><wbr><ruby class="c"><span class="h">一</span><rt class="y">yì</rt></ruby><wbr><ruby class="c"><span class="h">边</span><rt class="y">biān</rt></ruby><wbr><ruby class="c"><span class="h">教</span><rt class="y">jiào</rt></ruby><wbr><ruby class="c"><span class="h">我</span><rt class="y">wǒ</rt></ruby><wbr><ruby class="c"><span class="h">认</span><rt class="y">rèn</rt></ruby><wbr><ruby class="c"><span class="h">各</span><rt class="y">gè</rt></ruby><wbr><ruby class="c"><span class="h">种</span><rt class="y">zhǒng</rt></ruby><wbr><span class="nb"><ruby class="c"><span class="h">菜</span><rt class="y">cài</rt></ruby><ruby class="c p tuck"><span class="h">。</span><rt class="y">&nbsp;</rt></ruby></span></p><p class="para"><ruby class="c"><span class="h">夏</span><rt class="y">xià</rt></ruby><wbr><ruby class="c"><span class="h">天</span><rt class="y">tiān</rt></ruby><wbr><ruby class="c"><span class="h">最</span><rt class="y">zuì</rt></ruby><wbr><ruby class="c"><span class="h">有</span><rt class="y">yǒu</rt></ruby><wbr><span class="nb"><ruby class="c"><span class="h">趣</span><rt class="y">qù</rt></ruby><ruby class="c p tuck"><span class="h">。</span><rt class="y">&nbsp;</rt></ruby></span><wbr><ruby class="c"><span class="h">黄</span><rt class="y">huáng</rt></ruby><wbr><ruby class="c"><span class="h">瓜</span><rt class="y">guā</rt></ruby><wbr><ruby class="c"><span class="h">藤</span><rt class="y">téng</rt></ruby><wbr><ruby class="c"><span class="h">爬</span><rt class="y">pá</rt></ruby><wbr><ruby class="c"><span class="h">满</span><rt class="y">mǎn</rt></ruby><wbr><ruby class="c"><span class="h">竹</span><rt class="y">zhú</rt></ruby><wbr><span class="nb"><ruby class="c"><span class="h">架</span><rt class="y">jià</rt></ruby><ruby class="c p tuck"><span class="h">，</span><rt class="y">&nbsp;</rt></ruby></span><wbr><ruby class="c"><span class="h">西</span><rt class="y">xī</rt></ruby><wbr><ruby class="c"><span class="h">红</span><rt class="y">hóng</rt></ruby><wbr><ruby class="c"><span class="h">柿</span><rt class="y">shì</rt></ruby><wbr><ruby class="c"><span class="h">一</span><rt class="y">yì</rt></ruby><wbr><ruby class="c"><span class="h">天</span><rt class="y">tiān</rt></ruby><wbr><ruby class="c"><span class="h">天</span><rt class="y">tiān</rt></ruby><wbr><ruby class="c"><span class="h">变</span><rt class="y">biàn</rt></ruby><wbr><span class="nb"><ruby class="c"><span class="h">红</span><rt class="y">hóng</rt></ruby><ruby class="c p tuck"><span class="h">。</span><rt class="y">&nbsp;</rt></ruby></span><wbr><ruby class="c"><span class="h">清</span><rt class="y">qīng</rt></ruby><wbr><ruby class="c"><span class="h">晨</span><rt class="y">chén</rt></ruby><wbr><ruby class="c"><span class="h">浇</span><rt class="y">jiāo</rt></ruby><wbr><ruby class="c"><span class="h">水</span><rt class="y">shuǐ</rt></ruby><wbr><ruby class="c"><span class="h">的</span><rt class="y">de</rt></ruby><wbr><ruby class="c"><span class="h">时</span><rt class="y">shí</rt></ruby><wbr><ruby class="c"><span class="h">候</span><rt class="y">hou</rt></ruby><wbr><ruby class="c"><span class="h">我</span><rt class="y">wǒ</rt></ruby><wbr><ruby class="c"><span class="h">数</span><rt class="y">shù</rt></ruby><wbr><span class="nb"><ruby class="c"><span class="h">过</span><rt class="y">guò</rt></ruby><ruby class="c p tuck"><span class="h">，</span><rt class="y">&nbsp;</rt></ruby></span><wbr><ruby class="c"><span class="h">最</span><rt class="y">zuì</rt></ruby><wbr><ruby class="c"><span class="h">长</span><rt class="y">cháng</rt></ruby><wbr><ruby class="c"><span class="h">的</span><rt class="y">de</rt></ruby><wbr><ruby class="c"><span class="h">一</span><rt class="y">yì</rt></ruby><wbr><ruby class="c"><span class="h">根</span><rt class="y">gēn</rt></ruby><wbr><ruby class="c"><span class="h">黄</span><rt class="y">huáng</rt></ruby><wbr><ruby class="c"><span class="h">瓜</span><rt class="y">guā</rt></ruby><wbr><ruby class="c"><span class="h">有</span><rt class="y">yǒu</rt></ruby> <ruby class="c lat"><span class="h">23</span><rt class="y">&nbsp;</rt></ruby> <ruby class="c"><span class="h">厘</span><rt class="y">lí</rt></ruby><wbr><span class="nb"><ruby class="c"><span class="h">米</span><rt class="y">mǐ</rt></ruby><ruby class="c p tuck"><span class="h">，</span><rt class="y">&nbsp;</rt></ruby></span><wbr><ruby class="c"><span class="h">比</span><rt class="y">bǐ</rt></ruby><wbr><ruby class="c"><span class="h">我</span><rt class="y">wǒ</rt></ruby><wbr><ruby class="c"><span class="h">的</span><rt class="y">de</rt></ruby><wbr><ruby class="c"><span class="h">铅</span><rt class="y">qiān</rt></ruby><wbr><ruby class="c"><span class="h">笔</span><rt class="y">bǐ</rt></ruby><wbr><ruby class="c"><span class="h">盒</span><rt class="y">hé</rt></ruby><wbr><ruby class="c"><span class="h">还</span><rt class="y">hái</rt></ruby><wbr><span class="nb"><ruby class="c"><span class="h">长</span><rt class="y">cháng</rt></ruby><ruby class="c p tuck"><span class="h">。</span><rt class="y">&nbsp;</rt></ruby></span></p><p class="para"><ruby class="c"><span class="h">秋</span><rt class="y">qiū</rt></ruby><wbr><span class="nb"><ruby class="c"><span class="h">天</span><rt class="y">tiān</rt></ruby><ruby class="c p tuck"><span class="h">，</span><rt class="y">&nbsp;</rt></ruby></span><wbr><ruby class="c"><span class="h">白</span><rt class="y">bái</rt></ruby><wbr><ruby class="c"><span class="h">菜</span><rt class="y">cài</rt></ruby><wbr><ruby class="c"><span class="h">排</span><rt class="y">pái</rt></ruby><wbr><ruby class="c"><span class="h">着</span><rt class="y">zhe</rt></ruby><wbr><ruby class="c"><span class="h">队</span><rt class="y">duì</rt></ruby><wbr><ruby class="c"><span class="h">站</span><rt class="y">zhàn</rt></ruby><wbr><ruby class="c"><span class="h">在</span><rt class="y">zài</rt></ruby><wbr><ruby class="c"><span class="h">地</span><rt class="y">de</rt></ruby><wbr><span class="nb"><ruby class="c"><span class="h">里</span><rt class="y">lǐ</rt></ruby><ruby class="c p tuck"><span class="h">，</span><rt class="y">&nbsp;</rt></ruby></span><wbr><ruby class="c"><span class="h">像</span><rt class="y">xiàng</rt></ruby><wbr><ruby class="c"><span class="h">一</span><rt class="y">yí</rt></ruby><wbr><ruby class="c"><span class="h">队</span><rt class="y">duì</rt></ruby><wbr><ruby class="c"><span class="h">穿</span><rt class="y">chuān</rt></ruby><wbr><ruby class="c"><span class="h">着</span><rt class="y">zhe</rt></ruby><wbr><ruby class="c"><span class="h">绿</span><rt class="y">lǜ</rt></ruby><wbr><ruby class="c"><span class="h">裙</span><rt class="y">qún</rt></ruby><wbr><ruby class="c"><span class="h">子</span><rt class="y">zi</rt></ruby><wbr><ruby class="c"><span class="h">的</span><rt class="y">de</rt></ruby><wbr><ruby class="c"><span class="h">小</span><rt class="y">xiǎo</rt></ruby><wbr><ruby class="c"><span class="h">士</span><rt class="y">shì</rt></ruby><wbr><span class="nb"><ruby class="c"><span class="h">兵</span><rt class="y">bīng</rt></ruby><ruby class="c p tuck"><span class="h">。</span><rt class="y">&nbsp;</rt></ruby></span><wbr><ruby class="c"><span class="h">萝</span><rt class="y">luó</rt></ruby><wbr><ruby class="c"><span class="h">卜</span><rt class="y">bo</rt></ruby><wbr><ruby class="c"><span class="h">躲</span><rt class="y">duǒ</rt></ruby><wbr><ruby class="c"><span class="h">在</span><rt class="y">zài</rt></ruby><wbr><ruby class="c"><span class="h">土</span><rt class="y">tǔ</rt></ruby><wbr><span class="nb"><ruby class="c"><span class="h">里</span><rt class="y">lǐ</rt></ruby><ruby class="c p tuck"><span class="h">，</span><rt class="y">&nbsp;</rt></ruby></span><wbr><ruby class="c"><span class="h">只</span><rt class="y">zhǐ</rt></ruby><wbr><ruby class="c"><span class="h">露</span><rt class="y">lù</rt></ruby><wbr><ruby class="c"><span class="h">出</span><rt class="y">chū</rt></ruby><wbr><ruby class="c"><span class="h">一</span><rt class="y">yì</rt></ruby><wbr><ruby class="c"><span class="h">点</span><rt class="y">diǎn</rt></ruby><wbr><ruby class="c"><span class="h">点</span><rt class="y">diǎn</rt></ruby><wbr><ruby class="c"><span class="h">红</span><rt class="y">hóng</rt></ruby><wbr><ruby class="c"><span class="h">脑</span><rt class="y">nǎo</rt></ruby><wbr><span class="nb"><ruby class="c"><span class="h">袋</span><rt class="y">dài</rt></ruby><ruby class="c p tuck"><span class="h">，</span><rt class="y">&nbsp;</rt></ruby></span><wbr><ruby class="c"><span class="h">等</span><rt class="y">děng</rt></ruby><wbr><ruby class="c"><span class="h">着</span><rt class="y">zhe</rt></ruby><wbr><ruby class="c"><span class="h">我</span><rt class="y">wǒ</rt></ruby><wbr><ruby class="c"><span class="h">们</span><rt class="y">men</rt></ruby><wbr><ruby class="c"><span class="h">去</span><rt class="y">qù</rt></ruby><wbr><ruby class="c"><span class="h">发</span><rt class="y">fā</rt></ruby><wbr><span class="nb"><ruby class="c"><span class="h">现</span><rt class="y">xiàn</rt></ruby><ruby class="c p tuck"><span class="h">。</span><rt class="y">&nbsp;</rt></ruby></span></p><p class="para"><ruby class="c"><span class="h">冬</span><rt class="y">dōng</rt></ruby><wbr><ruby class="c"><span class="h">天</span><rt class="y">tiān</rt></ruby><wbr><ruby class="c"><span class="h">菜</span><rt class="y">cài</rt></ruby><wbr><ruby class="c"><span class="h">园</span><rt class="y">yuán</rt></ruby><wbr><ruby class="c"><span class="h">也</span><rt class="y">yě</rt></ruby><wbr><ruby class="c"><span class="h">没</span><rt class="y">méi</rt></ruby><wbr><ruby class="c"><span class="h">有</span><rt class="y">yǒu</rt></ruby><wbr><ruby class="c"><span class="h">睡</span><rt class="y">shuì</rt></ruby><wbr><span class="nb"><ruby class="c"><span class="h">觉</span><rt class="y">jiào</rt></ruby><ruby class="c p tuck"><span class="h">。</span><rt class="y">&nbsp;</rt></ruby></span><wbr><ruby class="c"><span class="h">菠</span><rt class="y">bō</rt></ruby><wbr><ruby class="c"><span class="h">菜</span><rt class="y">cài</rt></ruby><wbr><ruby class="c"><span class="h">贴</span><rt class="y">tiē</rt></ruby><wbr><ruby class="c"><span class="h">着</span><rt class="y">zhe</rt></ruby><wbr><ruby class="c"><span class="h">地</span><rt class="y">dì</rt></ruby><wbr><ruby class="c"><span class="h">面</span><rt class="y">miàn</rt></ruby><wbr><ruby class="c"><span class="h">铺</span><rt class="y">pù</rt></ruby><wbr><ruby class="c"><span class="h">开</span><rt class="y">kāi</rt></ruby><wbr><ruby class="c"><span class="h">叶</span><rt class="y">yè</rt></ruby><wbr><span class="nb"><ruby class="c"><span class="h">子</span><rt class="y">zi</rt></ruby><ruby class="c p tuck"><span class="h">，</span><rt class="y">&nbsp;</rt></ruby></span><wbr><ruby class="c"><span class="h">大</span><rt class="y">dà</rt></ruby><wbr><ruby class="c"><span class="h">蒜</span><rt class="y">suàn</rt></ruby><wbr><ruby class="c"><span class="h">在</span><rt class="y">zài</rt></ruby><wbr><ruby class="c"><span class="h">冷</span><rt class="y">lěng</rt></ruby><wbr><ruby class="c"><span class="h">风</span><rt class="y">fēng</rt></ruby><wbr><ruby class="c"><span class="h">里</span><rt class="y">lǐ</rt></ruby><wbr><ruby class="c"><span class="h">站</span><rt class="y">zhàn</rt></ruby><wbr><ruby class="c"><span class="h">得</span><rt class="y">de</rt></ruby><wbr><ruby class="c"><span class="h">笔</span><rt class="y">bǐ</rt></ruby><wbr><span class="nb"><ruby class="c"><span class="h">直</span><rt class="y">zhí</rt></ruby><ruby class="c p tuck"><span class="h">。</span><rt class="y">&nbsp;</rt></ruby></span><wbr><ruby class="c"><span class="h">外</span><rt class="y">wài</rt></ruby><wbr><ruby class="c"><span class="h">婆</span><rt class="y">pó</rt></ruby><wbr><span class="nb"><ruby class="c"><span class="h">说</span><rt class="y">shuō</rt></ruby><ruby class="c p tuck"><span class="h">，</span><rt class="y">&nbsp;</rt></ruby></span><wbr><ruby class="c"><span class="h">菜</span><rt class="y">cài</rt></ruby><wbr><ruby class="c"><span class="h">园</span><rt class="y">yuán</rt></ruby><wbr><ruby class="c"><span class="h">懂</span><rt class="y">dǒng</rt></ruby><wbr><ruby class="c"><span class="h">得</span><rt class="y">de</rt></ruby><wbr><ruby class="c"><span class="h">等</span><rt class="y">děng</rt></ruby><wbr><span class="nb"><ruby class="c"><span class="h">待</span><rt class="y">dài</rt></ruby><ruby class="c p tuck"><span class="h">，</span><rt class="y">&nbsp;</rt></ruby></span><wbr><ruby class="c"><span class="h">人</span><rt class="y">rén</rt></ruby><wbr><ruby class="c"><span class="h">也</span><rt class="y">yě</rt></ruby><wbr><ruby class="c"><span class="h">一</span><rt class="y">yí</rt></ruby><wbr><span class="nb"><ruby class="c"><span class="h">样</span><rt class="y">yàng</rt></ruby><ruby class="c p tuck"><span class="h">。</span><rt class="y">&nbsp;</rt></ruby></span></p></main>
+  
+</div>
+<script type="application/json" id="cpt-spec">{"title":"外婆的小菜园","text":"外婆的小菜园在屋后的坡地上，一年四季都热热闹闹的。\n\n春天，韭菜先冒出尖尖的绿芽，蚕豆开出黑白相间的小花。外婆挎着竹篮，一边摘豌豆尖，一边教我认各种菜。\n\n夏天最有趣。黄瓜藤爬满竹架，西红柿一天天变红。清晨浇水的时候我数过，最长的一根黄瓜有 23 厘米，比我的铅笔盒还长。\n\n秋天，白菜排着队站在地里，像一队穿着绿裙子的小士兵。萝卜躲在土里，只露出一点点红脑袋，等着我们去发现。\n\n冬天菜园也没有睡觉。菠菜贴着地面铺开叶子，大蒜在冷风里站得笔直。外婆说，菜园懂得等待，人也一样。","template":"reading","_template":"reading","columns":2}</script>
+</body>
+</html>

@@ -47,6 +47,9 @@ FONT_STACKS = {
 # 其余标点一律视为闭合类（行首禁排），并入前一个内容单元。
 _OPENING_PUNCT = set("（〔【｛《〈「『“‘([{<«")
 
+# 双栏栏间距 = 汉字字号 × 该系数（与 base.css 中 column-gap: calc(var(--fs) * 2.5) 保持同步）
+COLUMN_GAP_K = 2.5
+
 
 class RenderError(ValueError):
     pass
@@ -74,6 +77,7 @@ def resolve_config(spec: dict, template: str) -> dict:
         "lgap": float(spec.get("line_gap_scale") or d.get("lgap", 0.7)),
         "page": str(spec.get("page") or "A4").upper(),
         "landscape": bool(spec.get("landscape")),
+        "columns": spec.get("columns", 1),
         "margin_mm": spec.get("margin_mm", 18.0),
         "font": str(spec.get("font") or "kai").lower(),
         "mode": str(spec.get("mode") or "both").lower(),
@@ -84,6 +88,12 @@ def resolve_config(spec: dict, template: str) -> dict:
     }
     if cfg["page"] not in PAGE_SIZES:
         raise RenderError(f"不支持的纸张 {cfg['page']}（可选 A4/A5/Letter）")
+    try:
+        cfg["columns"] = int(cfg["columns"])
+    except (TypeError, ValueError):
+        raise RenderError(f"columns 需为 1 或 2（当前 {cfg['columns']!r}）")
+    if cfg["columns"] not in (1, 2):
+        raise RenderError(f"columns 需为 1 或 2（当前 {cfg['columns']}）")
     if cfg["font"] not in FONT_STACKS:
         raise RenderError(f"不支持的字体 {cfg['font']}（可选 kai/song/hei）")
     if cfg["mode"] not in MODES:
@@ -248,6 +258,19 @@ def _verse_fragments(ann: Annotation) -> tuple[list[list[Token]], int]:
     return frags, max(n_stanza, 1)
 
 
+def _pack_columns(n_rows_per_stanza: list[int], cols: int) -> list[list[int]]:
+    """把各节的行数贪心装栏（节不跨栏，与 CSS break-inside:avoid 一致）。
+
+    返回每栏 [行数, 节数]；cols=1 时等价于全部装一栏。
+    """
+    stat = [[0, 0] for _ in range(cols)]
+    for n in sorted(n_rows_per_stanza, reverse=True):
+        i = min(range(cols), key=lambda k: stat[k][0])
+        stat[i][0] += n
+        stat[i][1] += 1
+    return stat
+
+
 def _fit_han_size(cfg: dict, ann: Annotation) -> tuple[float, float, float, bool]:
     """横向（最长句不超页宽）+ 纵向（总高不超页高）联合适配。
 
@@ -266,9 +289,11 @@ def _fit_han_size(cfg: dict, ann: Annotation) -> tuple[float, float, float, bool
     if cfg["mode"] == "hanzi":
         cell_r = 1.12
 
-    frags, n_stanza = _verse_fragments(ann)
+    frags, _ = _verse_fragments(ann)
     max_units = max((_line_units(f, cell_r) for f in frags), default=cell_r)
-    fs_w = content_w / max_units
+    # 双栏：最长句须放进半栏宽，栏间距随字号缩放 → 一次解出字号上限
+    cols = cfg["columns"]
+    fs_w = content_w / (cols * max_units + COLUMN_GAP_K * (cols - 1))
 
     row_k = cfg["pinyin_ratio"] * 1.7 + 1.18          # rowh / fs
     header_k = 0.0
@@ -279,11 +304,15 @@ def _fit_han_size(cfg: dict, ann: Annotation) -> tuple[float, float, float, bool
     if cfg["template"] == "worksheet":
         header_k += 0.62 + 0.8                        # 姓名/日期栏
     tian_k = 2.0 * cfg["copy_rows"] if cfg["copy_rows"] else 0.0
-    k_total = (header_k
-               + len(frags) * (row_k + cfg["vgap"]) - cfg["vgap"]
-               + (n_stanza - 1) * 1.6
-               + len(frags) * tian_k)
-    fs_h = content_h / max(k_total, 1.0)
+    # 纵向：按节贪心分栏（节不跨栏），取最高一栏的高度
+    rows_per_stanza = [
+        sum(len(_split_verse(toks)) for toks in stanza) for stanza in _stanzas(ann)
+    ] or [len(frags)]
+    body_k = max(
+        rows * (row_k + cfg["vgap"]) - cfg["vgap"] + max(st - 1, 0) * 1.6 + rows * tian_k
+        for rows, st in _pack_columns(rows_per_stanza, cols)
+    )
+    fs_h = content_h / max(header_k + body_k, 1.0)
 
     fs = min(cfg["han_size"], fs_w, fs_h)
     wrap = False
@@ -495,7 +524,8 @@ def render_document(spec: dict, ann: Annotation, ann_title, ann_author,
     clamp = template in ("poem", "worksheet") and verse_like
     body_class = (
         f"mode-{cfg['mode']} tpl-{template}"
-        f"{' auto-clamp' if clamp else ''}{' wrap-ok' if wrap else ''}")
+        f"{' auto-clamp' if clamp else ''}{' wrap-ok' if wrap else ''}"
+        f"{' cols-2' if cfg['columns'] == 2 else ''}")
 
     doc = (tpl
            .replace("{{common_css}}", page_css + css_vars + common_css)
@@ -513,6 +543,7 @@ def render_document(spec: dict, ann: Annotation, ann_title, ann_author,
     return {
         "template": template,
         "mode": cfg["mode"],
+        "columns": cfg["columns"],
         "han_size": round(fs, 2),
         "pinyin_size": round(fs * cfg["pinyin_ratio"], 2),
         "page": cfg["page"],

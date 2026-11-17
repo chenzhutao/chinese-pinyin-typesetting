@@ -252,6 +252,7 @@ def build(args) -> dict:
         "output": str(out),
         "template": template,
         "mode": info["mode"],
+        "columns": info["columns"],
         "hanzi_count": ann.hanzi_count,
         "han_size_pt": info["han_size"],
         "pinyin_size_pt": info["pinyin_size"],

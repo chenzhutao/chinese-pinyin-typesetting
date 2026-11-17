@@ -1,9 +1,9 @@
 ---
 name: chinese-pinyin-typesetting
-description: 中文拼音注音排版。给古诗、儿歌、课文、短文生成适合小学生阅读、朗诵、背诵和 A4 打印的注音 HTML 文档（汉字上方逐字标注带声调拼音，教材风格排版）。用户提到加拼音、注音、拼音排版、拼音文档、默写练习、看拼音写汉字、注音版/背诵版/朗读版古诗等时使用。支持多音字教材读音与用户校正（如"鬓毛衰"读 cuī）、三种模板（古诗背诵版/课文阅读版/默写练习版）、只显汉字/只显拼音等模式、可选本机 Chrome/Edge 导出 PDF。
+description: 中文拼音注音排版。给古诗、儿歌、课文、短文生成适合小学生阅读、朗诵、背诵和 A4 打印的注音 HTML 文档（汉字上方逐字标注带声调拼音，教材风格排版）。用户提到加拼音、注音、拼音排版、拼音文档、默写练习、看拼音写汉字、注音版/背诵版/朗读版古诗、双栏排版等时使用。支持多音字教材读音与用户校正（如"鬓毛衰"读 cuī）、三种模板（古诗背诵版/课文阅读版/默写练习版）、只显汉字/只显拼音等模式、双栏正文可选、可选本机 Chrome/Edge 导出 PDF。
 license: MIT
 metadata:
-  version: "1.1.4"
+  version: "1.2.0"
   category: education
   runtime: "Python >= 3.10（仅标准库 + 内置 pypinyin 0.55.0，见 scripts/_vendor；无需 pip install，无网络请求）"
   outputs: "自包含单文件 HTML（UTF-8、内嵌 CSS、无外部资源）；可选 PDF，需执行环境装有 Chrome/Chromium/Edge"
@@ -69,6 +69,7 @@ Agent 的职责是：理解用户需求 → 准备 spec → 以标准方式执�
   "margin_mm": 18,
   "font": "kai",
   "tone_sandhi": "yi_bu",
+  "columns": 1,
   "footer": ""
 }
 ```
@@ -87,6 +88,9 @@ Agent 的职责是：理解用户需求 → 准备 spec → 以标准方式执�
 **mode**（对所有模板通用）：`both` 拼音+汉字｜`hanzi` 只显汉字（背诵/朗诵）｜
 `pinyin` 只显拼音、汉字位为田字格（看拼音默写）｜`blank_pinyin` 汉字+拼音书写
 空线（给汉字标调练习）。
+
+**columns**（版面选项，对所有模板通用）：`1` 单栏（默认）｜`2` 正文双栏
+（页眉页脚通栏、诗句节不跨栏；窄屏自动回退单栏，打印保持双栏）。
 
 用户没指定样式就用默认（auto + both + A4），**不要反复询问配置**。
 
@@ -135,6 +139,7 @@ Agent 的职责是：理解用户需求 → 准备 spec → 以标准方式执�
 | "把这段课文加拼音，排版成 A4" | spec：`template:"reading"`（或默认）`page:"A4"` |
 | "生成《春晓》的拼音默写练习" | spec：`template:"worksheet", mode:"pinyin"` |
 | "把第三句第二个字的读音改成四声" | `--from-html 上次.html --override '{"line":3,"char":2,"tone":4}'` |
+| "正文排成双栏" | `--from-html 上次.html --set columns=2`（窄屏自动回退单栏） |
 | "汉字放大点，拼音缩小点" | `--from-html 上次.html --set han_size=36 --set pinyin_ratio=0.38` |
 | "不要拼音，再来一份背诵版" | `--from-html 上次.html --set mode=hanzi` |
 

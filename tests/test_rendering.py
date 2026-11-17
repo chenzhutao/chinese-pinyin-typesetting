@@ -241,3 +241,46 @@ def test_render_rejects_bad_config():
         make({"text": JYS, "page": "B4"}, "bad2.html")
     with pytest.raises(rd.RenderError):
         make({"text": JYS, "han_size": 500}, "bad3.html")
+
+
+def test_columns_two_layout():
+    """columns=2：body 加 cols-2 类、CSS 双栏生效、字号按半栏宽求解（小于单栏）。"""
+    doc2 = make({"title": "静夜思", "text": JYS, "columns": 2}, "col1.html").read_text(encoding="utf-8")
+    doc1 = make({"title": "静夜思", "text": JYS}, "col2.html").read_text(encoding="utf-8")
+    body2 = re.search(r'<body class="([^"]*)"', doc2).group(1)
+    body1 = re.search(r'<body class="([^"]*)"', doc1).group(1)
+    assert "cols-2" in body2 and "column-count: 2" in doc2
+    assert "cols-2" not in body1                             # 默认单栏
+    fs2 = float(re.search(r"--fs-base: ([\d.]+)pt", doc2).group(1))
+    fs1 = float(re.search(r"--fs-base: ([\d.]+)pt", doc1).group(1))
+    assert fs2 < fs1                                           # 半栏宽 → 字号上限更低
+    # 窄屏回退单栏（仅屏幕）与栏间距系数在 CSS 中成对出现
+    assert "column-count: 1" in doc2
+    assert "column-gap: calc(var(--fs) * 2.5)" in doc2
+    # reading 模板同样支持双栏
+    docr = make({"title": "课", "text": "这是一段比较长的现代课文句子，" * 6,
+                 "template": "reading", "columns": 2}, "col3.html").read_text(encoding="utf-8")
+    assert "cols-2" in docr and "tpl-reading" in docr
+
+
+def test_columns_validation():
+    with pytest.raises(rd.RenderError):
+        make({"text": JYS, "columns": 3}, "colbad1.html")
+    with pytest.raises(rd.RenderError):
+        make({"text": JYS, "columns": "two"}, "colbad2.html")
+
+
+def test_columns_cli_roundtrip():
+    """CLI：spec columns=2 → 摘要回显；--from-html 可改回单栏。"""
+    r = run_cli("--spec", write_spec(TMP / "cli10.json", {
+        "title": "春晓", "text": "春眠不觉晓，处处闻啼鸟。\n夜来风雨声，花落知多少。",
+        "columns": 2}), "--out", "cli10.html")
+    assert r["ok"], r
+    assert r["columns"] == 2
+    doc = (TMP / "cli10.html").read_text(encoding="utf-8")
+    assert "cols-2" in doc
+    assert rd.extract_spec_from_html(TMP / "cli10.html")["columns"] == 2
+    r2 = run_cli("--from-html", "cli10.html", "--set", "columns=1", "--out", "cli11.html")
+    assert r2["ok"] and r2["columns"] == 1
+    body1 = re.search(r'<body class="([^"]*)"', (TMP / "cli11.html").read_text(encoding="utf-8")).group(1)
+    assert "cols-2" not in body1
